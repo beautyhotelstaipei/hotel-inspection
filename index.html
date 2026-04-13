@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>飯店巡房系統</title>
+<style>
+:root{--theme:#1a1a2e;--theme-light:#2d2d4e;--accent:#e74c3c;--success:#27ae60;--warn:#e67e22;--info:#2980b9;--bg:#f5f6fa;--card:#fff;--text:#1a1a2e;--text2:#666;--text3:#aaa;--border:#eee;--radius:16px;--radius-sm:10px;--shadow:0 2px 12px rgba(0,0,0,0.08);}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;width:100%;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;color:var(--text);font-size:16px;line-height:1.6;overflow-x:hidden;}
+
+/* ── 登入 ── */
+#loginWrap{position:fixed;inset:0;background:var(--theme);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;padding:24px;}
+.login-card{background:white;border-radius:24px;padding:40px 28px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,0.3);}
+.login-brand{text-align:center;margin-bottom:32px;}
+.login-brand .logo{font-size:56px;display:block;margin-bottom:12px;}
+.login-brand h1{font-size:24px;font-weight:800;color:var(--theme);}
+.login-brand p{font-size:14px;color:var(--text3);margin-top:4px;}
+.f-label{font-size:14px;font-weight:600;color:var(--text2);margin-bottom:8px;margin-top:20px;display:block;}
+.f-input{width:100%;padding:14px 16px;border:2px solid var(--border);border-radius:var(--radius-sm);font-size:16px;background:#fafafa;color:var(--text);outline:none;transition:border 0.2s;-webkit-appearance:none;}
+.f-input:focus{border-color:var(--theme);background:white;}
+textarea.f-input{resize:none;height:72px;}
+.btn-login{width:100%;padding:16px;background:var(--theme);color:white;border:none;border-radius:var(--radius-sm);font-size:17px;font-weight:700;cursor:pointer;margin-top:24px;transition:opacity 0.2s;}
+.btn-login:active{opacity:0.85;}
+.login-err{color:var(--accent);font-size:14px;text-align:center;margin-top:12px;display:none;}
+
+/* ── 主畫面 ── */
+#app{display:none;min-height:100vh;flex-direction:column;}
+#app.on{display:flex;}
+.topbar{background:var(--theme);color:white;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;position:sticky;top:0;z-index:100;}
+.topbar-title{font-size:17px;font-weight:700;}
+.topbar-right{display:flex;align-items:center;gap:10px;}
+.topbar-user{font-size:13px;opacity:0.75;}
+.btn-logout{font-size:13px;padding:6px 12px;border:1.5px solid rgba(255,255,255,0.4);border-radius:20px;background:transparent;color:white;cursor:pointer;}
+
+/* ── 導覽列 ── */
+.tabnav-wrap{background:white;border-bottom:1px solid var(--border);position:sticky;top:56px;z-index:99;}
+.tabnav{display:flex;overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:600px;margin:0 auto;}
+.tabnav::-webkit-scrollbar{display:none;}
+.tab{flex-shrink:0;padding:12px 16px;font-size:13px;font-weight:500;color:var(--text3);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1px;white-space:nowrap;transition:color 0.2s;}
+.tab.on{color:var(--theme);border-bottom-color:var(--theme);font-weight:700;}
+
+/* ── 頁面 ── */
+.pages{flex:1;}
+.page{display:none;}
+.page.on{display:block;}
+.wrap{max-width:600px;margin:0 auto;padding:16px;}
+
+/* ── 通用元件 ── */
+.card{background:var(--card);border-radius:var(--radius);padding:18px;margin-bottom:12px;box-shadow:var(--shadow);}
+.card-title{font-size:17px;font-weight:700;margin-bottom:16px;}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+.stat-box{background:var(--card);border-radius:var(--radius-sm);padding:16px;box-shadow:var(--shadow);}
+.stat-n{font-size:32px;font-weight:800;line-height:1;}
+.stat-l{font-size:12px;color:var(--text3);margin-top:4px;}
+.badge{display:inline-flex;align-items:center;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap;}
+.b-ok{background:#e8f8f0;color:#1a7a4a;}
+.b-ng{background:#fde8e8;color:#c0392b;}
+.b-warn{background:#fef3e2;color:#a04000;}
+.b-info{background:#e8f4fd;color:#1a5276;}
+.b-gray{background:#f0f0f0;color:#555;}
+.b-purple{background:#f3effe;color:#5b2d8e;}
+.list-row{display:flex;justify-content:space-between;align-items:center;padding:13px 0;border-bottom:1px solid var(--border);cursor:pointer;}
+.list-row:last-child{border-bottom:none;}
+.list-row:active{background:#f9f9f9;}
+.row-t{font-size:15px;font-weight:600;}
+.row-s{font-size:13px;color:var(--text3);margin-top:2px;}
+.sec-title{font-size:11px;font-weight:700;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin:16px 0 8px;}
+.btn{display:block;width:100%;padding:14px;border-radius:var(--radius-sm);border:none;font-size:16px;font-weight:700;cursor:pointer;text-align:center;transition:opacity 0.15s;}
+.btn:active{opacity:0.85;}
+.btn-primary{background:var(--theme);color:white;}
+.btn-outline{background:transparent;border:2px solid var(--border);color:var(--text);}
+.btn-danger{background:var(--accent);color:white;}
+.btn-sm{display:inline-flex;align-items:center;padding:8px 16px;width:auto;font-size:14px;border-radius:8px;margin:0;}
+.loading{text-align:center;padding:48px;color:var(--text3);}
+.empty{text-align:center;padding:48px;color:var(--text3);font-size:15px;}
+.alert{padding:13px 16px;border-radius:var(--radius-sm);font-size:14px;margin-bottom:10px;font-weight:500;}
+.alert-ok{background:#e8f8f0;color:#1a7a4a;}
+.alert-err{background:#fde8e8;color:#c0392b;}
+.date-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.result-hdr{display:flex;justify-content:space-between;align-items:center;margin:14px 0 10px;}
+.result-cnt{font-size:14px;color:var(--text2);}
+.btn-exp{font-size:13px;background:none;border:1.5px solid var(--border);padding:7px 14px;border-radius:8px;cursor:pointer;font-weight:600;color:var(--theme);}
+
+/* ── 排名 ── */
+.rank-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--border);}
+.rank-row:last-child{border-bottom:none;}
+.rank-n{width:28px;height:28px;border-radius:50%;background:var(--theme);color:white;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.rank-n.g{background:#f39c12;}
+.rank-n.s{background:#95a5a6;}
+.rank-n.b{background:#cd7f32;}
+.rank-name{font-size:15px;font-weight:600;flex:1;}
+.rank-cnt{font-size:15px;font-weight:700;color:var(--theme);}
+
+/* ── 巡房表單 ── */
+.fill-toggle{display:flex;gap:8px;margin-bottom:14px;}
+.fill-btn{flex:1;padding:11px;border-radius:var(--radius-sm);border:2px solid var(--border);background:white;color:var(--text3);cursor:pointer;font-size:14px;font-weight:600;text-align:center;transition:all 0.2s;}
+.fill-btn.on{background:var(--theme);color:white;border-color:var(--theme);}
+.area-card{background:white;border-radius:var(--radius);padding:16px;margin-bottom:8px;box-shadow:var(--shadow);}
+.area-hdr{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+.area-name{font-size:15px;font-weight:700;}
+.area-hint{font-size:12px;color:var(--text3);margin-top:3px;line-height:1.5;}
+.tog-grp{display:flex;gap:6px;flex-shrink:0;}
+.tog{padding:7px 11px;border-radius:20px;border:1.5px solid var(--border);font-size:13px;background:white;color:var(--text3);cursor:pointer;font-weight:600;white-space:nowrap;transition:all 0.15s;}
+.tog.ok.on{background:var(--success);border-color:var(--success);color:white;}
+.tog.ng.on{background:var(--accent);border-color:var(--accent);color:white;}
+.tog.na.on{background:#888;border-color:#888;color:white;}
+.anomaly-wrap{background:#fff8f8;border-radius:var(--radius-sm);padding:14px;margin-top:12px;border:1.5px solid #fcc;}
+.anomaly-item{padding-bottom:14px;margin-bottom:14px;border-bottom:1px dashed #fcc;}
+.anomaly-item:last-of-type{border-bottom:none;padding-bottom:0;margin-bottom:0;}
+.anomaly-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+.anomaly-n{font-size:14px;font-weight:700;color:var(--accent);}
+.btn-rm{color:var(--accent);background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;}
+.mini-l{font-size:13px;font-weight:600;color:var(--text2);margin-bottom:8px;margin-top:12px;}
+.chip-grp{display:flex;flex-wrap:wrap;gap:7px;}
+.chip{padding:8px 16px;border-radius:20px;border:1.5px solid var(--border);font-size:14px;background:white;color:var(--text2);cursor:pointer;font-weight:500;transition:all 0.15s;}
+.chip.on{background:#e8f4fd;color:var(--info);border-color:#aed6f1;}
+.sev-grp{display:flex;gap:8px;}
+.sev{padding:8px 20px;border-radius:20px;border:1.5px solid var(--border);font-size:14px;background:white;color:var(--text3);cursor:pointer;font-weight:600;}
+.sev.l.on{background:#fef3e2;color:var(--warn);border-color:#f8c471;}
+.sev.h.on{background:#fde8e8;color:var(--accent);border-color:#f5b7b1;}
+.status-grp{display:flex;flex-wrap:wrap;gap:8px;}
+.st-btn{padding:8px 14px;border-radius:20px;border:1.5px solid var(--border);background:white;color:var(--text2);cursor:pointer;font-size:13px;font-weight:600;transition:all 0.15s;}
+.btn-add-a{background:white;border:2px dashed var(--border);color:var(--text3);border-radius:var(--radius-sm);padding:11px;font-size:14px;cursor:pointer;width:100%;margin-top:10px;font-weight:600;}
+
+/* 整體備註追蹤 */
+.note-track{background:#f0f8ff;border-radius:var(--radius-sm);padding:14px;margin-top:12px;border:1.5px solid #aed6f1;}
+.note-track-title{font-size:14px;font-weight:700;color:var(--info);margin-bottom:10px;}
+.track-toggle{display:flex;gap:8px;margin-bottom:12px;}
+.track-btn{flex:1;padding:10px;border-radius:8px;border:1.5px solid var(--border);background:white;color:var(--text3);cursor:pointer;font-size:13px;font-weight:600;text-align:center;}
+.track-btn.on{background:var(--info);color:white;border-color:var(--info);}
+
+/* ── 查詢結果 ── */
+.insp-card{background:white;border-radius:var(--radius);padding:16px;margin-bottom:10px;box-shadow:var(--shadow);}
+.insp-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;}
+.time-info{margin-top:8px;display:flex;flex-direction:column;gap:3px;}
+.time-row{font-size:12px;color:var(--text3);}
+.time-row span{color:var(--text2);font-weight:600;}
+.a-detail{background:#fff8f8;border-radius:var(--radius-sm);padding:12px;margin-top:10px;}
+.a-row{display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:1px solid #fdecea;font-size:14px;}
+.a-row:last-child{border-bottom:none;}
+.mod-hist{background:#f0f4ff;border-radius:var(--radius-sm);padding:12px;margin-top:10px;}
+.mod-r{font-size:13px;color:var(--text2);padding:4px 0;border-bottom:1px solid #dde;;}
+.mod-r:last-child{border-bottom:none;}
+
+/* ── 異常追蹤 ── */
+.track-card{background:white;border-radius:var(--radius);padding:16px;margin-bottom:10px;box-shadow:var(--shadow);border-left:5px solid var(--border);}
+.track-card.p{border-left-color:var(--accent);}
+.track-card.r{border-left-color:var(--success);}
+.track-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;}
+.confirm-bar{background:#f8f8f8;border-radius:var(--radius-sm);padding:12px;margin-top:12px;display:none;align-items:center;gap:10px;flex-wrap:wrap;}
+.confirm-bar.on{display:flex;}
+.eff-badge{font-size:12px;color:var(--text3);margin-top:6px;}
+
+/* ── 篩選標籤 ── */
+.filter-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+.ft{padding:9px 18px;border-radius:20px;border:1.5px solid var(--border);background:white;color:var(--text2);cursor:pointer;font-size:14px;font-weight:600;transition:all 0.15s;}
+.ft.on{color:white;border-color:var(--theme);background:var(--theme);}
+
+/* ── 彈窗 ── */
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:500;align-items:flex-end;justify-content:center;}
+.modal.on{display:flex;}
+.modal-box{background:white;border-radius:24px 24px 0 0;padding:24px 20px;width:100%;max-width:600px;max-height:85vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.modal-title{font-size:18px;font-weight:800;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:white;padding-bottom:14px;border-bottom:1px solid var(--border);}
+.modal-close{background:none;border:none;font-size:24px;cursor:pointer;color:var(--text3);line-height:1;}
+
+/* 封存查詢 */
+.archive-notice{background:#fef9e7;border:1.5px solid #f8c471;border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:12px;font-size:14px;color:#7d6608;}
+</style>
+</head>
+<body>
+
+<!-- 登入 -->
+<div id="loginWrap">
+  <div class="login-card">
+    <div class="login-brand">
+      <span class="logo">🏨</span>
+      <h1 id="loginTitle">飯店巡房系統</h1>
+      <p>請登入您的帳號</p>
+    </div>
+    <label class="f-label">帳號</label>
+    <input class="f-input" type="text" id="loginAcc" placeholder="請輸入帳號" autocomplete="username">
+    <label class="f-label">密碼</label>
+    <input class="f-input" type="password" id="loginPwd" placeholder="請輸入密碼" autocomplete="current-password">
+    <button class="btn-login" id="loginBtn" onclick="doLogin()">登入</button>
+    <p class="login-err" id="loginErr"></p>
+  </div>
+</div>
+
+<!-- 主畫面 -->
+<div id="app">
+  <div class="topbar">
+    <span class="topbar-title" id="pageTitle">總覽</span>
+    <div class="topbar-right">
+      <span class="topbar-user" id="userName"></span>
+      <button class="btn-logout" onclick="doLogout()">登出</button>
+    </div>
+  </div>
+
+  <div class="tabnav-wrap">
+    <div class="tabnav">
+      <div class="tab on" onclick="goTab('home',this)">🏠 總覽</div>
+      <div class="tab" onclick="goTab('inspect',this)">📋 巡房</div>
+      <div class="tab" onclick="goTab('query',this)">🔍 查詢</div>
+      <div class="tab" onclick="goTab('anomaly',this)">⚠️ 異常追蹤</div>
+      <div class="tab" onclick="goTab('stats',this)">📊 統計</div>
+      <div class="tab" onclick="goTab('archive',this)">📁 封存查詢</div>
+    </div>
+  </div>
+
+  <div class="pages">
+
+    <!-- 總覽 -->
+    <div class="page on" id="pg-home">
+      <div class="wrap" id="dashContent"><div class="loading">載入中...</div></div>
+    </div>
+
+    <!-- 巡房 -->
+    <div class="page" id="pg-inspect">
+      <div class="wrap">
+        <div class="card">
+          <div class="card-title">新增巡房紀錄</div>
+          <div class="mini-l" style="margin-top:0">填寫方式</div>
+          <div class="fill-toggle">
+            <div class="fill-btn on" id="fb-now" onclick="setFill('now')">巡房中填寫</div>
+            <div class="fill-btn" id="fb-retro" onclick="setFill('retro')">事後補填</div>
+          </div>
+          <div id="retroFields" style="display:none">
+            <label class="f-label">巡房開始時間</label>
+            <input class="f-input" type="datetime-local" id="i-start">
+            <label class="f-label">巡房結束時間</label>
+            <input class="f-input" type="datetime-local" id="i-end">
+          </div>
+          <label class="f-label">區域</label>
+          <select class="f-input" id="i-area" onchange="onArea()"><option value="">請選擇區域</option></select>
+          <label class="f-label">類型</label>
+          <select class="f-input" id="i-type" onchange="onType()"><option value="">請選擇類型</option></select>
+          <label class="f-label">館名</label>
+          <select class="f-input" id="i-loc"><option value="">請選擇館名</option></select>
+          <label class="f-label">房號</label>
+          <input class="f-input" type="text" id="i-room" placeholder="輸入房號（例：101、A02）">
+          <label class="f-label">房間狀態</label>
+          <select class="f-input" id="i-rs"><option value="">請選擇狀態</option></select>
+          <!-- 自訂欄位（巡房位置） -->
+          <div id="i-custom"></div>
+        </div>
+
+        <div class="sec-title">巡視項目</div>
+        <div id="areaList"></div>
+
+        <div class="card">
+          <label class="f-label" style="margin-top:0">整體備註（選填）</label>
+          <textarea class="f-input" id="i-note" placeholder="填寫整體備註..."></textarea>
+          <!-- 備註追蹤 -->
+          <div class="note-track" id="noteTrackBox" style="display:none">
+            <div class="note-track-title">📌 此備註需要追蹤處理？</div>
+            <div class="track-toggle">
+              <div class="track-btn on" id="nt-no" onclick="setNoteTrack(false)">不需要</div>
+              <div class="track-btn" id="nt-yes" onclick="setNoteTrack(true)">需要追蹤</div>
+            </div>
+            <div id="noteAnomalyList" style="display:none"></div>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" id="submitBtn" onclick="doSubmit()" style="margin-bottom:8px;">送出巡房紀錄</button>
+        <div id="submitResult"></div>
+      </div>
+    </div>
+
+    <!-- 查詢 -->
+    <div class="page" id="pg-query">
+      <div class="wrap">
+        <div class="card">
+          <div class="card-title">巡房紀錄查詢</div>
+          <div class="date-row">
+            <div><label class="f-label" style="margin-top:0">開始日期</label><input class="f-input" type="date" id="q-s"></div>
+            <div><label class="f-label" style="margin-top:0">結束日期</label><input class="f-input" type="date" id="q-e"></div>
+          </div>
+          <label class="f-label">館名</label>
+          <select class="f-input" id="q-loc"><option value="全部">全部館名</option></select>
+          <label class="f-label">房號（選填）</label>
+          <input class="f-input" type="text" id="q-room" placeholder="留空查詢全部">
+          <label class="f-label">巡房人員</label>
+          <select class="f-input" id="q-insp"><option value="全部">全部人員</option></select>
+          <!-- 自訂欄位查詢條件 -->
+          <div id="q-custom"></div>
+          <div style="display:flex;gap:10px;align-items:center;margin-top:14px;">
+            <input type="checkbox" id="q-only" style="width:18px;height:18px;">
+            <label for="q-only" style="font-size:15px;font-weight:500;">只顯示有異常的紀錄</label>
+          </div>
+          <button class="btn btn-primary" onclick="doQuery()" style="margin-top:12px;">查詢</button>
+        </div>
+        <div id="queryResult"></div>
+      </div>
+    </div>
+
+    <!-- 異常追蹤 -->
+    <div class="page" id="pg-anomaly">
+      <div class="wrap">
+        <div class="card">
+          <div class="card-title">異常追蹤</div>
+          <div class="filter-tabs" id="anomalyTabs">
+            <span class="ft on" onclick="setAType(this,'全部')">全部</span>
+            <span class="ft" onclick="setAType(this,'維修')">維修</span>
+            <span class="ft" onclick="setAType(this,'清潔')">清潔</span>
+            <span class="ft" onclick="setAType(this,'備品')">備品</span>
+            <span class="ft" onclick="setAType(this,'其他')">其他</span>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;">
+            <input type="checkbox" id="a-pend" style="width:18px;height:18px;" checked onchange="doAnomaly()">
+            <label for="a-pend" style="font-size:15px;font-weight:500;">只顯示未結案</label>
+          </div>
+          <div class="date-row">
+            <div><label class="f-label" style="margin-top:0">開始日期</label><input class="f-input" type="date" id="a-s"></div>
+            <div><label class="f-label" style="margin-top:0">結束日期</label><input class="f-input" type="date" id="a-e"></div>
+          </div>
+          <label class="f-label">館名</label>
+          <select class="f-input" id="a-loc"><option value="全部">全部館名</option></select>
+          <label class="f-label">房號（選填）</label>
+          <input class="f-input" type="text" id="a-room" placeholder="選填">
+          <label class="f-label">嚴重度</label>
+          <select class="f-input" id="a-sev"><option value="全部">全部</option></select>
+          <button class="btn btn-primary" onclick="doAnomaly()" style="margin-top:12px;">查詢</button>
+        </div>
+        <div id="anomalyResult"></div>
+      </div>
+    </div>
+
+    <!-- 統計 -->
+    <div class="page" id="pg-stats">
+      <div class="wrap">
+        <div class="card">
+          <div class="card-title">統計報表</div>
+          <div class="date-row">
+            <div><label class="f-label" style="margin-top:0">開始日期</label><input class="f-input" type="date" id="s-s"></div>
+            <div><label class="f-label" style="margin-top:0">結束日期</label><input class="f-input" type="date" id="s-e"></div>
+          </div>
+          <button class="btn btn-primary" onclick="doStats()" style="margin-top:12px;">查詢統計</button>
+        </div>
+        <div id="statsResult"></div>
+      </div>
+    </div>
+
+    <!-- 封存查詢 -->
+    <div class="page" id="pg-archive">
+      <div class="wrap">
+        <div class="archive-notice">📁 封存查詢：查詢已封存的歷史巡房資料。請先在系統設定填入「封存試算表ID」。</div>
+        <div class="card">
+          <div class="card-title">封存資料查詢</div>
+          <div class="date-row">
+            <div><label class="f-label" style="margin-top:0">開始日期</label><input class="f-input" type="date" id="ar-s"></div>
+            <div><label class="f-label" style="margin-top:0">結束日期</label><input class="f-input" type="date" id="ar-e"></div>
+          </div>
+          <label class="f-label">館名</label>
+          <select class="f-input" id="ar-loc"><option value="全部">全部館名</option></select>
+          <button class="btn btn-primary" onclick="doArchive()" style="margin-top:12px;">查詢封存資料</button>
+        </div>
+        <div id="archiveResult"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- 修改彈窗 -->
+<div class="modal" id="editModal">
+  <div class="modal-box">
+    <div class="modal-title">修改巡房紀錄<button class="modal-close" onclick="closeModal('editModal')">✕</button></div>
+    <input type="hidden" id="e-id">
+    <label class="f-label" style="margin-top:0">房號</label>
+    <input class="f-input" type="text" id="e-room">
+    <label class="f-label">房間狀態</label>
+    <select class="f-input" id="e-rs"></select>
+    <label class="f-label">修改說明</label>
+    <textarea class="f-input" id="e-note" placeholder="請說明修改原因..."></textarea>
+    <button class="btn btn-primary" id="editSaveBtn" onclick="doSaveEdit()" style="margin-top:20px;">儲存修改</button>
+    <div id="editResult" style="margin-top:10px;"></div>
+  </div>
+</div>
+
+<!-- 明細彈窗 -->
+<div class="modal" id="detailModal">
+  <div class="modal-box">
+    <div class="modal-title"><span id="detailTitle">明細</span><button class="modal-close" onclick="closeModal('detailModal')">✕</button></div>
+    <div id="detailContent"></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// 設定
+// ============================================================
+const API = '/api/proxy';
+var user=null, ref={}, cfg={}, fillMode='now', noteTracking=false, anomalyType='全部', pendSt={};
+
+function today(){ return new Date().toISOString().split('T')[0]; }
+
+async function api(action, params){
+  try{
+    const r = await fetch(API, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({action, ...params})
+    });
+    return await r.json();
+  }catch(e){ return {success:false, message:e.message}; }
+}
+
+function alert2(id,msg,type){
+  const el=document.getElementById(id); if(!el)return;
+  el.innerHTML='<div class="alert alert-'+(type==='ok'?'ok':'err')+'">'+msg+'</div>';
+  if(type==='ok') setTimeout(()=>{if(el)el.innerHTML='';},4000);
+}
+
+function openModal(id){
+  const m=document.getElementById(id); m.classList.add('on');
+  setTimeout(()=>{ const b=m.querySelector('.modal-box'); if(b)b.scrollTop=0; },50);
+}
+function closeModal(id){ document.getElementById(id).classList.remove('on'); }
+
+// 套用系統設定
+function applySettings(s){
+  cfg=s||{};
+  const theme=cfg['主題顏色']||'#1a1a2e';
+  const fs=cfg['字體大小']||'16';
+  const name=cfg['系統名稱']||'飯店巡房系統';
+  document.documentElement.style.setProperty('--theme',theme);
+  document.body.style.fontSize=fs+'px';
+  document.getElementById('loginTitle').textContent=name;
+  document.title=name;
+  document.getElementById('loginWrap').style.background=theme;
+}
+
+// ============================================================
+// 登入
+// ============================================================
+async function doLogin(){
+  const acc=document.getElementById('loginAcc').value.trim();
+  const pwd=document.getElementById('loginPwd').value.trim();
+  const errEl=document.getElementById('loginErr');
+  const btn=document.getElementById('loginBtn');
+  if(!acc||!pwd){errEl.textContent='請輸入帳號和密碼';errEl.style.display='block';return;}
+  errEl.style.display='none'; btn.textContent='登入中...'; btn.disabled=true;
+  const r = await api('login',{account:acc,password:pwd});
+  btn.textContent='登入'; btn.disabled=false;
+  if(r.success){
+    user=r.user;
+    document.getElementById('loginWrap').style.display='none';
+    document.getElementById('app').classList.add('on');
+    document.getElementById('userName').textContent=user.name;
+    await initApp();
+  }else{
+    errEl.textContent=r.message||'登入失敗'; errEl.style.display='block';
+  }
+}
+document.getElementById('loginPwd').addEventListener('keypress',e=>{if(e.key==='Enter')doLogin();});
+
+function doLogout(){
+  if(!confirm('確定要登出嗎？'))return;
+  user=null; ref={};
+  document.getElementById('loginWrap').style.display='flex';
+  document.getElementById('app').classList.remove('on');
+  document.getElementById('loginAcc').value='';
+  document.getElementById('loginPwd').value='';
+}
+
+// ============================================================
+// 初始化
+// ============================================================
+async function initApp(){
+  const r = await api('getRefData',{scope:user.scope});
+  if(!r.success){alert('載入資料失敗：'+r.message);return;}
+  ref=r.data;
+  applySettings(ref['系統設定']);
+  setupSelects();
+  initInspect();
+  loadDash();
+}
+
+function setupSelects(){
+  const locs=ref['據點清單']||[];
+  const uLocs=[...new Set(locs.map(r=>r[2]))];
+  const staff=ref['人員清單']||[];
+  const sevs=(ref['嚴重度']||[]).map(r=>r[0]);
+  const rs=(ref['房間狀態']||[]).map(r=>r[0]);
+  const t=today();
+
+  ['q-loc','a-loc','ar-loc'].forEach(id=>{
+    const s=document.getElementById(id); if(!s)return;
+    const f=s.options[0]; s.innerHTML=''; s.appendChild(f);
+    uLocs.forEach(l=>s.appendChild(new Option(l,l)));
+  });
+
+  const qi=document.getElementById('q-insp');
+  if(qi){const f=qi.options[0];qi.innerHTML='';qi.appendChild(f);staff.forEach(s=>qi.appendChild(new Option(s.name,s.name)));}
+
+  const as=document.getElementById('a-sev');
+  if(as){const f=as.options[0];as.innerHTML='';as.appendChild(f);sevs.forEach(s=>as.appendChild(new Option(s,s)));}
+
+  const er=document.getElementById('e-rs');
+  if(er){er.innerHTML='';rs.forEach(s=>er.appendChild(new Option(s,s)));}
+
+  ['q-s','q-e','a-s','a-e','s-s','s-e','ar-s','ar-e'].forEach(id=>{
+    const el=document.getElementById(id); if(el)el.value=t;
+  });
+
+  // 自訂欄位（查詢條件）
+  renderCustomFields('查詢','q-custom');
+}
+
+// ============================================================
+// 頁面切換
+// ============================================================
+function goTab(name,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
+  document.getElementById('pg-'+name).classList.add('on');
+  btn.classList.add('on');
+  const titles={home:'總覽',inspect:'新增巡房',query:'巡房查詢',anomaly:'異常追蹤',stats:'統計報表',archive:'封存查詢'};
+  document.getElementById('pageTitle').textContent=titles[name]||'';
+  window.scrollTo(0,0);
+  if(name==='home')loadDash();
+  if(name==='inspect')resetInspect();
+}
+
+// ============================================================
+// 總覽
+// ============================================================
+async function loadDash(){
+  document.getElementById('dashContent').innerHTML='<div class="loading">載入中...</div>';
+  const r=await api('getDashboard',{scope:user.scope});
+  if(!r.success){document.getElementById('dashContent').innerHTML='<div class="empty">載入失敗</div>';return;}
+  const d=r.data;
+  let h='<div class="stat-grid">'
+    +'<div class="stat-box"><div class="stat-n">'+d.totalInspections+'</div><div class="stat-l">今日巡房筆數</div></div>'
+    +'<div class="stat-box"><div class="stat-n">'+d.totalUniqueRooms+'</div><div class="stat-l">今日覆蓋房間</div></div>'
+    +'<div class="stat-box"><div class="stat-n" style="color:var(--accent)">'+d.totalAnomalies+'</div><div class="stat-l">今日異常件數</div></div>'
+    +'<div class="stat-box"><div class="stat-n" style="color:var(--warn)">'+d.pendingCount+'</div><div class="stat-l">累計待處理</div></div>'
+    +'</div>';
+
+  if(d.ranking&&d.ranking.length){
+    h+='<div class="sec-title">今日巡房排名 TOP '+d.ranking.length+'</div><div class="card" style="padding:4px 18px;">';
+    d.ranking.forEach((rec,i)=>{
+      const cls=i===0?'g':i===1?'s':i===2?'b':'';
+      h+='<div class="rank-row"><div class="rank-n '+cls+'">'+(i+1)+'</div><div class="rank-name">'+rec.name+'</div><span class="rank-cnt">'+rec.count+'間</span></div>';
+    });
+    h+='</div>';
+  }
+
+  h+='<div class="sec-title">各館今日狀況（點選查看明細）</div>';
+  if(!d.locationStats.length){h+='<div class="empty">今日尚無巡房紀錄</div>';}
+  else{
+    h+='<div class="card" style="padding:4px 18px;">';
+    d.locationStats.forEach(loc=>{
+      const badge=loc.anomalyCount>0?'<span class="badge b-ng">'+loc.anomalyCount+'項異常</span>':'<span class="badge b-ok">正常</span>';
+      h+='<div class="list-row" onclick="showDashDetail(\''+loc.name+'\')"><div><div class="row-t">'+loc.name+'</div><div class="row-s">'+loc.area+'・'+loc.type+'・已巡'+loc.uniqueRooms+'/'+loc.totalRooms+'間('+loc.inspCount+'筆)</div></div>'+badge+'</div>';
+    });
+    h+='</div>';
+  }
+  document.getElementById('dashContent').innerHTML=h;
+  window._dash=d;
+}
+
+async function showDashDetail(locName){
+  document.getElementById('detailTitle').textContent=locName+' 今日明細';
+  document.getElementById('detailContent').innerHTML='<div class="loading">載入中...</div>';
+  openModal('detailModal');
+  const r=await api('getInspections',{filters:JSON.stringify({userScope:user.scope,startDate:today(),endDate:today(),location:locName,pageSize:100})});
+  if(!r.success||!r.data.length){document.getElementById('detailContent').innerHTML='<div class="empty">查無紀錄</div>';return;}
+  let h='';
+  r.data.forEach(rec=>{
+    const badge=rec.anomalies.length?'<span class="badge b-ng">'+rec.anomalies.length+'項異常</span>':'<span class="badge b-ok">正常</span>';
+    h+='<div class="insp-card"><div class="insp-hdr"><div><div class="row-t">'+rec.roomNumber+'號房</div><div class="row-s">'+rec.inspector+'・'+(rec.duration||'')+'・'+rec.roomStatus+'</div></div>'+badge+'</div>';
+    h+='<div class="time-info"><div class="time-row">巡房時間 <span>'+rec.startTime+'</span></div></div>';
+    if(rec.anomalies.length){
+      h+='<div class="a-detail">';
+      rec.anomalies.forEach(a=>{h+='<div class="a-row"><div style="flex:1;padding-right:8px"><strong>'+a.inspArea+'</strong>・'+a.type+(a.note?'・'+a.note:'')+'</div><span class="badge '+(a.severity==='嚴重'?'b-ng':'b-warn')+'">'+a.severity+'</span></div>';});
+      h+='</div>';
+    }
+    h+='</div>';
+  });
+  document.getElementById('detailContent').innerHTML=h;
+}
+
+// ============================================================
+// 自訂欄位渲染
+// ============================================================
+function renderCustomFields(position,containerId){
+  const fields=(ref['自訂欄位']||[]).filter(f=>f.positions.includes(position));
+  const el=document.getElementById(containerId); if(!el)return;
+  el.innerHTML='';
+  fields.forEach(f=>{
+    const div=document.createElement('div');
+    if(f.type==='下拉'){
+      div.innerHTML='<label class="f-label">'+f.name+(f.required?' *':'')+'</label>'
+        +'<select class="f-input" id="cf-'+position+'-'+f.name+'"><option value="">請選擇</option>'
+        +f.options.map(o=>'<option value="'+o+'">'+o+'</option>').join('')+'</select>';
+    }else{
+      div.innerHTML='<label class="f-label">'+f.name+(f.required?' *':'')+'</label>'
+        +'<input class="f-input" type="text" id="cf-'+position+'-'+f.name+'" placeholder="'+f.name+'">';
+    }
+    el.appendChild(div);
+  });
+}
+
+function getCustomFieldValues(position){
+  const fields=(ref['自訂欄位']||[]).filter(f=>f.positions.includes(position));
+  const values={};
+  fields.forEach(f=>{
+    const el=document.getElementById('cf-'+position+'-'+f.name);
+    if(el)values[f.name]=el.value||'';
+  });
+  return values;
+}
+
+// ============================================================
+// 巡房表單
+// ============================================================
+function setFill(mode){
+  fillMode=mode;
+  document.getElementById('fb-now').classList.toggle('on',mode==='now');
+  document.getElementById('fb-retro').classList.toggle('on',mode==='retro');
+  document.getElementById('retroFields').style.display=mode==='retro'?'block':'none';
+}
+
+function initInspect(){
+  const locs=ref['據點清單']||[];
+  const areas=[...new Set(locs.map(r=>r[0]))];
+  const aEl=document.getElementById('i-area');
+  aEl.innerHTML='<option value="">請選擇區域</option>';
+  areas.forEach(a=>aEl.appendChild(new Option(a,a)));
+  const rsEl=document.getElementById('i-rs');
+  rsEl.innerHTML='<option value="">請選擇狀態</option>';
+  (ref['房間狀態']||[]).map(r=>r[0]).forEach(s=>rsEl.appendChild(new Option(s,s)));
+  // 自訂欄位
+  renderCustomFields('巡房','i-custom');
+}
+
+function onArea(){
+  const area=document.getElementById('i-area').value;
+  const types=[...new Set((ref['據點清單']||[]).filter(r=>r[0]===area).map(r=>r[1]))];
+  const tEl=document.getElementById('i-type');
+  tEl.innerHTML='<option value="">請選擇類型</option>';
+  types.forEach(t=>tEl.appendChild(new Option(t,t)));
+  document.getElementById('i-loc').innerHTML='<option value="">請選擇館名</option>';
+}
+
+function onType(){
+  const area=document.getElementById('i-area').value;
+  const type=document.getElementById('i-type').value;
+  const locs=(ref['據點清單']||[]).filter(r=>r[0]===area&&r[1]===type).map(r=>r[2]);
+  const lEl=document.getElementById('i-loc');
+  lEl.innerHTML='<option value="">請選擇館名</option>';
+  locs.forEach(l=>lEl.appendChild(new Option(l,l)));
+}
+
+function getStatusList(type){
+  const key=type==='維修'?'維修狀態':type==='清潔'?'清潔狀態':type==='備品'?'備品狀態':'其他狀態';
+  return ref[key]||[];
+}
+
+function getStatusColor(s){
+  return s.color||(s.type==='結案'?'#27ae60':s.type==='追蹤'?'#e74c3c':'#555');
+}
+
+function renderAreas(){
+  const areas=ref['巡視區域']||[];
+  const c=document.getElementById('areaList'); c.innerHTML='';
+  areas.forEach((area,i)=>{
+    const d=document.createElement('div'); d.className='area-card';
+    d.innerHTML='<div class="area-hdr"><div><div class="area-name">'+area[1]+'</div>'+(area[2]?'<div class="area-hint">'+area[2]+'</div>':'')+'</div>'
+      +'<div class="tog-grp">'
+      +'<button class="tog ok on" onclick="setArea('+i+',\'ok\',this)">正常</button>'
+      +'<button class="tog ng" onclick="setArea('+i+',\'ng\',this)">異常</button>'
+      +'<button class="tog na" onclick="setArea('+i+',\'na\',this)">N/A</button>'
+      +'</div></div>'
+      +'<div class="anomaly-wrap" id="aw-'+i+'" style="display:none"></div>';
+    c.appendChild(d);
+  });
+}
+
+function setArea(i,status,btn){
+  btn.parentElement.querySelectorAll('.tog').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  const w=document.getElementById('aw-'+i);
+  if(status==='ng'){w.style.display='block';if(!w.children.length)addAnomaly(i);}
+  else{w.style.display='none';w.innerHTML='';}
+}
+
+function addAnomaly(ai,container){
+  const wrap=container||document.getElementById('aw-'+ai);
+  const num=wrap.querySelectorAll('.anomaly-item').length+1;
+  const types=(ref['問題類型']||[]).map(r=>r[0]);
+  const sevs=(ref['嚴重度']||[]).map(r=>r[0]);
+  const item=document.createElement('div'); item.className='anomaly-item'; item.dataset.ai=ai;
+  item.innerHTML='<div class="anomaly-hdr"><span class="anomaly-n">缺失 '+num+'</span>'
+    +(num>1?'<button class="btn-rm" onclick="removeAnomaly(this)">✕ 移除</button>':'')+'</div>'
+    +'<div class="mini-l">問題類型</div><div class="chip-grp type-grp">'
+    +types.map(t=>'<span class="chip" onclick="pickType(this,\''+ai+'\')">'+t+'</span>').join('')+'</div>'
+    +'<div class="mini-l">嚴重度</div><div class="sev-grp">'
+    +sevs.map((s,i)=>'<button class="sev '+(i===0?'l':'h')+' '+(i===0?'on':'')+'" onclick="pickSev(this)">'+s+'</button>').join('')+'</div>'
+    +'<div class="mini-l">處理狀態</div><div class="status-grp"><span style="color:var(--text3);font-size:13px;">請先選擇問題類型</span></div>'
+    +'<div class="mini-l">備註說明</div><textarea class="f-input anote" placeholder="請描述缺失內容..." style="height:60px"></textarea>';
+  const oldBtn=wrap.querySelector('.btn-add-a'); if(oldBtn)wrap.removeChild(oldBtn);
+  wrap.appendChild(item);
+  const addBtn=document.createElement('button'); addBtn.className='btn-add-a'; addBtn.textContent='＋ 新增缺失項目';
+  addBtn.onclick=()=>addAnomaly(ai,wrap); wrap.appendChild(addBtn);
+}
+
+function pickType(btn,ai){
+  btn.parentElement.querySelectorAll('.chip').forEach(b=>b.classList.remove('on')); btn.classList.add('on');
+  const type=btn.textContent;
+  const item=btn.closest('.anomaly-item');
+  const sg=item.querySelector('.status-grp');
+  const statuses=getStatusList(type);
+  sg.innerHTML=statuses.map(s=>{
+    const bg=getStatusColor(s);
+    return '<button class="st-btn" data-color="'+(s.color||'')+'" data-stype="'+(s.type||'')+'" onclick="pickStatus(this)">'+s.name+'</button>';
+  }).join('');
+  const first=sg.querySelector('.st-btn'); if(first)activateStatusBtn(first,true);
+}
+
+function activateStatusBtn(btn,active){
+  if(active){
+    const bg=btn.dataset.color||(btn.dataset.stype==='結案'?'#27ae60':btn.dataset.stype==='追蹤'?'#e74c3c':'#555');
+    btn.style.cssText='background:'+bg+';color:white;border-color:'+bg+';';
+  }else{ btn.style.cssText='background:white;color:var(--text2);border-color:var(--border);'; }
+}
+
+function pickStatus(btn){
+  btn.parentElement.querySelectorAll('.st-btn').forEach(b=>activateStatusBtn(b,false));
+  activateStatusBtn(btn,true);
+}
+
+function pickSev(btn){ btn.parentElement.querySelectorAll('.sev').forEach(b=>b.classList.remove('on')); btn.classList.add('on'); }
+function removeAnomaly(btn){
+  const item=btn.closest('.anomaly-item'); const wrap=item.parentElement; item.remove();
+  wrap.querySelectorAll('.anomaly-item').forEach((it,i)=>{ const n=it.querySelector('.anomaly-n'); if(n)n.textContent='缺失 '+(i+1); });
+}
+
+// 整體備註追蹤
+document.getElementById('i-note').addEventListener('input',function(){
+  document.getElementById('noteTrackBox').style.display=this.value.trim()?'block':'none';
+});
+
+function setNoteTrack(track){
+  noteTracking=track;
+  document.getElementById('nt-no').classList.toggle('on',!track);
+  document.getElementById('nt-yes').classList.toggle('on',track);
+  document.getElementById('noteAnomalyList').style.display=track?'block':'none';
+  if(track&&!document.getElementById('noteAnomalyList').children.length){
+    addNoteAnomaly();
+  }
+}
+
+function addNoteAnomaly(){
+  const wrap=document.getElementById('noteAnomalyList');
+  const num=wrap.querySelectorAll('.anomaly-item').length+1;
+  const types=(ref['問題類型']||[]).map(r=>r[0]);
+  const sevs=(ref['嚴重度']||[]).map(r=>r[0]);
+  const item=document.createElement('div'); item.className='anomaly-item';
+  item.innerHTML='<div class="anomaly-hdr"><span class="anomaly-n">追蹤項目 '+num+'</span>'
+    +(num>1?'<button class="btn-rm" onclick="removeAnomaly(this)">✕ 移除</button>':'')+'</div>'
+    +'<div class="mini-l">問題類型</div><div class="chip-grp type-grp">'
+    +types.map(t=>'<span class="chip" onclick="pickType(this,\'note\')">'+t+'</span>').join('')+'</div>'
+    +'<div class="mini-l">嚴重度</div><div class="sev-grp">'
+    +sevs.map((s,i)=>'<button class="sev '+(i===0?'l':'h')+' '+(i===0?'on':'')+'" onclick="pickSev(this)">'+s+'</button>').join('')+'</div>'
+    +'<div class="mini-l">處理狀態</div><div class="status-grp"><span style="color:var(--text3);font-size:13px;">請先選擇問題類型</span></div>';
+  const oldBtn=wrap.querySelector('.btn-add-a'); if(oldBtn)wrap.removeChild(oldBtn);
+  wrap.appendChild(item);
+  const addBtn=document.createElement('button'); addBtn.className='btn-add-a'; addBtn.textContent='＋ 新增追蹤項目';
+  addBtn.onclick=addNoteAnomaly; wrap.appendChild(addBtn);
+}
+
+function resetInspect(){
+  window._inspStart=new Date().toISOString();
+  setFill('now');
+  ['i-area','i-type','i-loc','i-rs'].forEach(id=>{ const el=document.getElementById(id); if(el)el.value=''; });
+  document.getElementById('i-type').innerHTML='<option value="">請選擇類型</option>';
+  document.getElementById('i-loc').innerHTML='<option value="">請選擇館名</option>';
+  document.getElementById('i-room').value='';
+  document.getElementById('i-note').value='';
+  document.getElementById('i-start').value='';
+  document.getElementById('i-end').value='';
+  document.getElementById('submitResult').innerHTML='';
+  document.getElementById('noteTrackBox').style.display='none';
+  document.getElementById('noteAnomalyList').innerHTML='';
+  noteTracking=false;
+  setNoteTrack(false);
+  const btn=document.getElementById('submitBtn'); btn.disabled=false; btn.textContent='送出巡房紀錄';
+  renderAreas();
+  // 重置自訂欄位
+  renderCustomFields('巡房','i-custom');
+}
+
+async function doSubmit(){
+  const area=document.getElementById('i-area').value;
+  const type=document.getElementById('i-type').value;
+  const loc=document.getElementById('i-loc').value;
+  const room=document.getElementById('i-room').value.trim();
+  const rs=document.getElementById('i-rs').value;
+  if(!area||!type||!loc||!room||!rs){alert2('submitResult','請填寫所有必填欄位','err');return;}
+  if(fillMode==='retro'&&(!document.getElementById('i-start').value||!document.getElementById('i-end').value)){
+    alert2('submitResult','事後補填請填寫巡房起迄時間','err');return;
+  }
+
+  // 收集異常
+  const anomalies=[];
+  document.querySelectorAll('#areaList .anomaly-item').forEach(item=>{
+    const ai=item.dataset.ai;
+    const areaData=(ref['巡視區域']||[])[ai];
+    const areaName=areaData?areaData[1]:'';
+    const typeBtn=item.querySelector('.type-grp .chip.on');
+    const sevBtn=item.querySelector('.sev.on');
+    let activeStatus='';
+    item.querySelectorAll('.st-btn').forEach(b=>{ if(b.style.color==='white')activeStatus=b.textContent; });
+    const note=item.querySelector('.anote')?item.querySelector('.anote').value:'';
+    if(typeBtn) anomalies.push({area:areaName,type:typeBtn.textContent,severity:sevBtn?sevBtn.textContent:'輕微',status:activeStatus,note});
+  });
+
+  // 收集備註追蹤
+  const noteAnomalies=[];
+  if(noteTracking){
+    document.querySelectorAll('#noteAnomalyList .anomaly-item').forEach(item=>{
+      const typeBtn=item.querySelector('.type-grp .chip.on');
+      const sevBtn=item.querySelector('.sev.on');
+      let activeStatus='';
+      item.querySelectorAll('.st-btn').forEach(b=>{ if(b.style.color==='white')activeStatus=b.textContent; });
+      if(typeBtn) noteAnomalies.push({type:typeBtn.textContent,severity:sevBtn?sevBtn.textContent:'輕微',status:activeStatus});
+    });
+  }
+
+  const btn=document.getElementById('submitBtn'); btn.disabled=true; btn.textContent='送出中...';
+  const startTime=fillMode==='retro'?document.getElementById('i-start').value:(window._inspStart||new Date().toISOString());
+  const endTime=fillMode==='retro'?document.getElementById('i-end').value:null;
+
+  const r=await api('submitInspection',{data:{
+    inspector:user.name, area, type, location:loc, roomNumber:room, roomStatus:rs,
+    generalNote:document.getElementById('i-note').value,
+    startTime, endTime, fillType:fillMode==='retro'?'事後補填':'巡房中填寫',
+    anomalies, noteAnomalies,
+    customFields:getCustomFieldValues('巡房')
+  }});
+
+  if(r.success){
+    alert2('submitResult','✓ 巡房紀錄已送出！紀錄編號：'+r.recordId,'ok');
+    setTimeout(()=>resetInspect(),2000);
+  }else{
+    alert2('submitResult','送出失敗：'+r.message,'err');
+    btn.disabled=false; btn.textContent='送出巡房紀錄';
+  }
+}
+
+// ============================================================
+// 查詢
+// ============================================================
+async function doQuery(){
+  const ps=parseInt(cfg['每頁顯示筆數'])||20;
+  const customFilters=getCustomFieldValues('查詢');
+  const filters={userScope:user.scope,startDate:document.getElementById('q-s').value,endDate:document.getElementById('q-e').value,
+    location:document.getElementById('q-loc').value,roomNumber:document.getElementById('q-room').value.trim(),
+    inspector:document.getElementById('q-insp').value,onlyAnomalies:document.getElementById('q-only').checked,
+    pageSize:ps,customFilters};
+  document.getElementById('queryResult').innerHTML='<div class="loading">查詢中...</div>';
+  const r=await api('getInspections',{filters:JSON.stringify(filters)});
+  if(!r.success){document.getElementById('queryResult').innerHTML='<div class="empty">查詢失敗：'+r.message+'</div>';return;}
+  const recs=r.data;
+  if(!recs.length){document.getElementById('queryResult').innerHTML='<div class="empty">查無紀錄</div>';return;}
+  const note=r.total>ps?'（共'+r.total+'筆，顯示前'+ps+'筆）':'共 '+r.total+' 筆';
+  let h='<div class="result-hdr"><span class="result-cnt">'+note+'</span><button class="btn-exp" onclick="exportCSV(\'insp\')">匯出 CSV</button></div>';
+  recs.forEach(rec=>{
+    const badge=rec.anomalies.length?'<span class="badge b-ng">'+rec.anomalies.length+'項異常</span>':'<span class="badge b-ok">全部正常</span>';
+    const isRetro=rec.fillType==='事後補填';
+    const timeH='<div class="time-info"><div class="time-row">巡房開始 <span>'+rec.startTime+'</span></div>'
+      +(isRetro&&rec.endTime?'<div class="time-row">巡房結束 <span>'+rec.endTime+'</span></div>':'')
+      +(isRetro?'<div class="time-row">建立時間 <span>'+rec.createdAt+'</span></div>':'')+'</div>';
+    let aH='';
+    if(rec.anomalies.length){
+      aH='<div class="a-detail">';
+      rec.anomalies.forEach(a=>{
+        const statuses=getStatusList(a.type);
+        let stColor='#888';
+        statuses.forEach(s=>{ if(s.name===a.status)stColor=getStatusColor(s); });
+        aH+='<div class="a-row"><div style="flex:1;padding-right:8px"><strong>'+a.inspArea+'</strong>・'+a.type+(a.note?'・'+a.note:'')+'</div>'
+          +'<div style="display:flex;gap:5px;flex-shrink:0;align-items:center;">'
+          +'<span class="badge '+(a.severity==='嚴重'?'b-ng':'b-warn')+'">'+a.severity+'</span>'
+          +'<span class="st-btn" style="background:'+stColor+';color:white;border-color:'+stColor+';font-size:11px;padding:3px 8px;">'+a.status+'</span>'
+          +'</div></div>';
+      });
+      aH+='</div>';
+    }
+    // 自訂欄位顯示
+    let cfH='';
+    const cfFields=(ref['自訂欄位']||[]).filter(f=>f.positions.includes('巡房'));
+    cfFields.forEach(f=>{ if(rec.customFields&&rec.customFields[f.name]) cfH+='<div class="row-s">'+f.name+'：'+rec.customFields[f.name]+'</div>'; });
+
+    let mH='';
+    if(rec.modifications&&rec.modifications.length){
+      mH='<div class="mod-hist">';
+      rec.modifications.forEach(m=>{mH+='<div class="mod-r">📝 '+m.modifier+'・'+m.modTime+'・'+(m.modNote||'')+'</div>';});
+      mH+='</div>';
+    }
+    const canEdit=rec.inspector===user.name;
+    h+='<div class="insp-card"><div class="insp-hdr"><div>'
+      +'<div class="row-t">'+rec.location+'・'+rec.roomNumber+'號房'+(isRetro?' <span style="font-size:12px;color:var(--warn)">[補填]</span>':'')+'</div>'
+      +'<div class="row-s">'+rec.inspector+'・'+(rec.duration||'')+'・'+(rec.roomStatus||'')+'</div>'
+      +(rec.generalNote?'<div class="row-s">備註：'+rec.generalNote+'</div>':'')
+      +cfH+'</div>'+badge+'</div>'+timeH+aH+mH
+      +(canEdit?'<button class="btn btn-outline btn-sm" style="margin-top:10px" onclick="openEdit(\''+rec.recordId+'\',\''+rec.roomNumber+'\',\''+rec.roomStatus+'\')">修改此紀錄</button>':'')
+      +'</div>';
+  });
+  document.getElementById('queryResult').innerHTML=h;
+  window._lastInsp=recs;
+}
+
+// ============================================================
+// 異常追蹤
+// ============================================================
+function setAType(btn,type){
+  anomalyType=type;
+  document.querySelectorAll('#anomalyTabs .ft').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on'); doAnomaly();
+}
+
+async function doAnomaly(){
+  const ps=parseInt(cfg['每頁顯示筆數'])||20;
+  const filters={userScope:user.scope,startDate:document.getElementById('a-s').value,endDate:document.getElementById('a-e').value,
+    location:document.getElementById('a-loc').value,roomNumber:document.getElementById('a-room').value.trim(),
+    type:anomalyType,severity:document.getElementById('a-sev').value,
+    onlyPending:document.getElementById('a-pend').checked,pageSize:ps};
+  document.getElementById('anomalyResult').innerHTML='<div class="loading">查詢中...</div>';
+  const r=await api('getAnomalies',{filters:JSON.stringify(filters)});
+  if(!r.success){document.getElementById('anomalyResult').innerHTML='<div class="empty">'+r.message+'</div>';return;}
+  const recs=r.data;
+  if(!recs.length){document.getElementById('anomalyResult').innerHTML='<div class="empty">查無異常紀錄</div>';return;}
+  const note=r.total>ps?'（共'+r.total+'筆，顯示前'+ps+'筆）':'共 '+r.total+' 筆';
+  let h='<div class="result-hdr"><span class="result-cnt">'+note+'</span><button class="btn-exp" onclick="exportCSV(\'anomaly\')">匯出 CSV</button></div>';
+  recs.forEach(rec=>{
+    const cls=rec.resolved?'r':'p';
+    const sevBadge=rec.severity==='嚴重'?'b-ng':'b-warn';
+    const typeBadge=rec.type==='維修'?'b-info':rec.type==='清潔'?'b-purple':'b-warn';
+    const statuses=getStatusList(rec.type);
+    const stBtns=statuses.map(s=>{
+      const isOn=s.name===rec.status;
+      const bg=getStatusColor(s);
+      const style=isOn?'background:'+bg+';color:white;border-color:'+bg+';':'';
+      return '<button class="st-btn" style="'+style+'" data-color="'+(s.color||'')+'" data-stype="'+(s.type||'')+'" data-name="'+s.name+'" onclick="confirmSt(\''+rec.anomalyId+'\',\''+s.name+'\',this)">'+s.name+'</button>';
+    }).join('');
+    h+='<div class="track-card '+cls+'"><div class="track-hdr"><div>'
+      +'<div class="row-t">'+rec.location+'・'+rec.roomNumber+'號房・'+rec.inspArea+'</div>'
+      +'<div class="row-s">'+rec.inspector+'・'+rec.createdAt+'</div>'
+      +(rec.note?'<div class="row-s">說明：'+rec.note+'</div>':'')
+      +(rec.timeEfficiency?'<div class="eff-badge">⏱ 處理時效：'+rec.timeEfficiency+'</div>':'')
+      +'</div><div style="text-align:right;flex-shrink:0;margin-left:10px">'
+      +'<span class="badge '+sevBadge+'">'+rec.severity+'</span><br>'
+      +'<span class="badge '+typeBadge+'" style="margin-top:6px">'+rec.type+'</span>'
+      +'</div></div>'
+      +'<div class="mini-l">更新處理狀態</div>'
+      +'<div class="status-grp" id="sg-'+rec.anomalyId+'">'+stBtns+'</div>'
+      +'<div class="confirm-bar" id="cf-'+rec.anomalyId+'">'
+      +'<span style="flex:1;font-size:14px;font-weight:500">確定更新狀態？</span>'
+      +'<button class="btn btn-primary btn-sm" onclick="doSt(\''+rec.anomalyId+'\')">確認</button>'
+      +'<button class="btn btn-outline btn-sm" onclick="cancelSt(\''+rec.anomalyId+'\')">取消</button>'
+      +'</div>'
+      +(rec.updatedAt?'<div class="row-s" style="margin-top:8px">最後更新：'+rec.updatedBy+'・'+rec.updatedAt+'</div>':'')
+      +'</div>';
+  });
+  document.getElementById('anomalyResult').innerHTML=h;
+  window._lastAnomaly=recs;
+}
+
+function confirmSt(id,status,btn){
+  const sg=document.getElementById('sg-'+id);
+  let origSt='';
+  if(sg)sg.querySelectorAll('.st-btn').forEach(b=>{ if(b.style.color==='white')origSt=b.dataset.name; });
+  pendSt[id]={status,origSt};
+  if(sg)sg.querySelectorAll('.st-btn').forEach(b=>{b.style.cssText='background:white;color:var(--text2);border-color:var(--border);';});
+  const bg=btn.dataset.color||(btn.dataset.stype==='結案'?'#27ae60':btn.dataset.stype==='追蹤'?'#e74c3c':'#555');
+  btn.style.cssText='background:'+bg+';color:white;border-color:'+bg+';';
+  const cf=document.getElementById('cf-'+id); if(cf)cf.classList.add('on');
+}
+
+async function doSt(id){
+  const p=pendSt[id]; if(!p)return;
+  const r=await api('updateAnomalyStatus',{anomalyId:id,newStatus:p.status,updaterName:user.name});
+  if(r.success) doAnomaly(); else alert('更新失敗：'+r.message);
+  delete pendSt[id];
+}
+
+function cancelSt(id){
+  const p=pendSt[id];
+  const sg=document.getElementById('sg-'+id);
+  if(sg&&p){
+    sg.querySelectorAll('.st-btn').forEach(b=>{
+      b.style.cssText='background:white;color:var(--text2);border-color:var(--border);';
+      if(b.dataset.name===p.origSt){
+        const bg=b.dataset.color||(b.dataset.stype==='結案'?'#27ae60':b.dataset.stype==='追蹤'?'#e74c3c':'#555');
+        b.style.cssText='background:'+bg+';color:white;border-color:'+bg+';';
+      }
+    });
+  }
+  delete pendSt[id];
+  const cf=document.getElementById('cf-'+id); if(cf)cf.classList.remove('on');
+}
+
+// ============================================================
+// 統計
+// ============================================================
+async function doStats(){
+  document.getElementById('statsResult').innerHTML='<div class="loading">統計中...</div>';
+  const filters={userScope:user.scope,startDate:document.getElementById('s-s').value,endDate:document.getElementById('s-e').value};
+  const r=await api('getStatistics',{filters:JSON.stringify(filters)});
+  if(!r.success){document.getElementById('statsResult').innerHTML='<div class="empty">統計失敗</div>';return;}
+  const d=r.data; window._stats=d;
+  let h='<div class="stat-grid">'
+    +'<div class="stat-box"><div class="stat-n">'+d.totalInspections+'</div><div class="stat-l">期間巡房筆數</div></div>'
+    +'<div class="stat-box"><div class="stat-n" style="color:var(--accent)">'+d.totalAnomalies+'</div><div class="stat-l">期間異常件數</div></div>'
+    +'</div>';
+
+  if(d.avgEfficiency){ h+='<div class="card"><div class="row-t">平均異常處理時效</div><div class="stat-n" style="font-size:24px;margin-top:6px;">'+d.avgEfficiency+'</div></div>'; }
+
+  if(d.ranking&&d.ranking.length){
+    h+='<div class="sec-title">期間巡房人員排名</div><div class="card" style="padding:4px 18px;">';
+    d.ranking.forEach((rec,i)=>{
+      const cls=i===0?'g':i===1?'s':i===2?'b':'';
+      h+='<div class="rank-row"><div class="rank-n '+cls+'">'+(i+1)+'</div><div class="rank-name">'+rec.name+'</div><span class="rank-cnt">'+rec.count+'間</span></div>';
+    });
+    h+='</div>';
+  }
+
+  if(d.inspLocationStats&&d.inspLocationStats.length){
+    h+='<div class="sec-title">各館巡房統計（點選明細）</div><div class="card" style="padding:4px 18px;">';
+    d.inspLocationStats.forEach(item=>{h+='<div class="list-row" onclick="showStDetail(\''+item[0]+'\',\'insp\')"><div class="row-t">'+item[0]+'</div><span class="badge b-info">'+item[1]+'筆</span></div>';});
+    h+='</div>';
+  }
+  if(d.locationStats&&d.locationStats.length){
+    h+='<div class="sec-title">各館異常統計（點選明細）</div><div class="card" style="padding:4px 18px;">';
+    d.locationStats.forEach(item=>{h+='<div class="list-row" onclick="showStDetail(\''+item[0]+'\',\'anomaly\')"><div class="row-t">'+item[0]+'</div><span class="badge b-ng">'+item[1]+'件</span></div>';});
+    h+='</div>';
+  }
+  if(d.areaStats&&d.areaStats.length){
+    h+='<div class="sec-title">巡視區域異常排行</div><div class="card" style="padding:4px 18px;">';
+    d.areaStats.forEach(item=>{h+='<div class="list-row"><div class="row-t">'+item[0]+'</div><span class="badge b-warn">'+item[1]+'件</span></div>';});
+    h+='</div>';
+  }
+  if(d.typeStats&&d.typeStats.length){
+    h+='<div class="sec-title">問題類型統計</div><div class="card" style="padding:4px 18px;">';
+    d.typeStats.forEach(item=>{h+='<div class="list-row"><div class="row-t">'+item[0]+'</div><span class="badge b-info">'+item[1]+'件</span></div>';});
+    h+='</div>';
+  }
+  // 自訂欄位統計（下拉類型）
+  const cfFields=(ref['自訂欄位']||[]).filter(f=>f.type==='下拉'&&f.positions.includes('統計'));
+  // 暫略，未來可加入
+
+  document.getElementById('statsResult').innerHTML=h;
+}
+
+function showStDetail(locName,type){
+  document.getElementById('detailTitle').textContent=locName+(type==='insp'?' 巡房明細':' 異常明細');
+  document.getElementById('detailContent').innerHTML='<div class="loading">載入中...</div>';
+  openModal('detailModal');
+  if(!window._stats){document.getElementById('detailContent').innerHTML='<div class="empty">請先查詢統計</div>';return;}
+  if(type==='insp'){
+    const details=(window._stats.locationDetails||{})[locName]||[];
+    if(!details.length){document.getElementById('detailContent').innerHTML='<div class="empty">查無紀錄</div>';return;}
+    let h='<div class="card" style="padding:4px 18px;">';
+    details.forEach(rec=>{h+='<div class="list-row"><div><div class="row-t">'+rec.roomNumber+'號房</div><div class="row-s">'+rec.inspector+'・'+rec.startTime+'・'+(rec.duration||'')+'</div></div><span class="badge b-gray">'+rec.roomStatus+'</span></div>';});
+    h+='</div>'; document.getElementById('detailContent').innerHTML=h;
+  }else{
+    const details=(window._stats.anomalyLocationDetails||{})[locName]||[];
+    if(!details.length){document.getElementById('detailContent').innerHTML='<div class="empty">查無異常紀錄</div>';return;}
+    let h='<div class="a-detail">';
+    details.forEach(a=>{
+      const statuses=getStatusList(a.type); let stColor='#888';
+      statuses.forEach(s=>{ if(s.name===a.status)stColor=getStatusColor(s); });
+      h+='<div class="a-row"><div style="flex:1;padding-right:8px"><strong>'+a.roomNumber+'號房・'+a.inspArea+'</strong>・'+a.type+(a.note?'・'+a.note:'')+'<div style="color:var(--text3);margin-top:2px">'+a.inspector+'・'+a.createdAt+'</div></div>'
+        +'<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">'
+        +'<span class="badge '+(a.severity==='嚴重'?'b-ng':'b-warn')+'">'+a.severity+'</span>'
+        +'<span class="st-btn" style="background:'+stColor+';color:white;border-color:'+stColor+';font-size:11px;padding:3px 8px">'+a.status+'</span>'
+        +'</div></div>';
+    });
+    h+='</div>'; document.getElementById('detailContent').innerHTML=h;
+  }
+}
+
+// ============================================================
+// 封存查詢
+// ============================================================
+async function doArchive(){
+  const ps=parseInt(cfg['每頁顯示筆數'])||20;
+  const filters={userScope:user.scope,startDate:document.getElementById('ar-s').value,endDate:document.getElementById('ar-e').value,location:document.getElementById('ar-loc').value,pageSize:ps};
+  document.getElementById('archiveResult').innerHTML='<div class="loading">查詢封存資料中...</div>';
+  const r=await api('getArchive',{filters:JSON.stringify(filters)});
+  if(!r.success){document.getElementById('archiveResult').innerHTML='<div class="empty">'+r.message+'</div>';return;}
+  const recs=r.data;
+  if(!recs.length){document.getElementById('archiveResult').innerHTML='<div class="empty">查無封存紀錄</div>';return;}
+  const note=r.total>ps?'（共'+r.total+'筆，顯示前'+ps+'筆）':'共 '+r.total+' 筆';
+  let h='<div class="archive-notice">📁 以下為封存資料</div>';
+  h+='<div class="result-hdr"><span class="result-cnt">'+note+'</span></div>';
+  recs.forEach(rec=>{
+    const badge=rec.anomalies.length?'<span class="badge b-ng">'+rec.anomalies.length+'項異常</span>':'<span class="badge b-ok">正常</span>';
+    h+='<div class="insp-card"><div class="insp-hdr"><div>'
+      +'<div class="row-t">'+rec.location+'・'+rec.roomNumber+'號房</div>'
+      +'<div class="row-s">'+rec.inspector+'・'+(rec.duration||'')+'・'+(rec.roomStatus||'')+'</div>'
+      +(rec.generalNote?'<div class="row-s">備註：'+rec.generalNote+'</div>':'')
+      +'</div>'+badge+'</div>'
+      +'<div class="time-info"><div class="time-row">巡房時間 <span>'+rec.startTime+'</span></div></div>';
+    if(rec.anomalies.length){
+      h+='<div class="a-detail">';
+      rec.anomalies.forEach(a=>{h+='<div class="a-row"><div style="flex:1;padding-right:8px"><strong>'+a.inspArea+'</strong>・'+a.type+(a.note?'・'+a.note:'')+'</div><span class="badge '+(a.severity==='嚴重'?'b-ng':'b-warn')+'">'+a.severity+'</span></div>';});
+      h+='</div>';
+    }
+    h+='</div>';
+  });
+  document.getElementById('archiveResult').innerHTML=h;
+}
+
+// ============================================================
+// 修改
+// ============================================================
+function openEdit(id,room,rs){
+  document.getElementById('e-id').value=id;
+  document.getElementById('e-room').value=room;
+  document.getElementById('e-note').value='';
+  document.getElementById('editResult').innerHTML='';
+  const btn=document.getElementById('editSaveBtn'); btn.disabled=false; btn.textContent='儲存修改';
+  const el=document.getElementById('e-rs');
+  for(let i=0;i<el.options.length;i++){ if(el.options[i].value===rs){el.selectedIndex=i;break;} }
+  openModal('editModal');
+}
+
+async function doSaveEdit(){
+  const note=document.getElementById('e-note').value.trim();
+  if(!note){alert2('editResult','請填寫修改說明','err');return;}
+  const btn=document.getElementById('editSaveBtn'); btn.disabled=true; btn.textContent='儲存中...';
+  const r=await api('updateInspection',{recordId:document.getElementById('e-id').value,data:{roomNumber:document.getElementById('e-room').value,roomStatus:document.getElementById('e-rs').value,modNote:note},updaterName:user.name});
+  if(r.success){
+    alert2('editResult','✓ 修改成功','ok');
+    setTimeout(()=>{ closeModal('editModal'); doQuery(); },1500);
+  }else{
+    alert2('editResult',r.message,'err'); btn.disabled=false; btn.textContent='儲存修改';
+  }
+}
+
+// ============================================================
+// 匯出 CSV
+// ============================================================
+function exportCSV(type){
+  let rows=[],headers=[],filename='';
+  if(type==='insp'&&window._lastInsp){
+    headers=['紀錄編號','巡房者','館名','房號','房間狀態','巡房開始','巡房結束','花費時間','整體備註','建立時間','填寫方式','巡視區域','問題類型','嚴重度','異常備註','處理狀態'];
+    // 加入自訂欄位標題
+    const cfFields=(ref['自訂欄位']||[]).filter(f=>f.positions.includes('巡房'));
+    cfFields.forEach(f=>headers.push(f.name));
+    window._lastInsp.forEach(rec=>{
+      const cfVals=cfFields.map(f=>(rec.customFields&&rec.customFields[f.name])||'');
+      if(rec.anomalies&&rec.anomalies.length){
+        rec.anomalies.forEach(a=>rows.push([rec.recordId,rec.inspector,rec.location,rec.roomNumber,rec.roomStatus,rec.startTime,rec.endTime,rec.duration,rec.generalNote,rec.createdAt,rec.fillType,a.inspArea,a.type,a.severity,a.note,a.status,...cfVals]));
+      }else{
+        rows.push([rec.recordId,rec.inspector,rec.location,rec.roomNumber,rec.roomStatus,rec.startTime,rec.endTime,rec.duration,rec.generalNote,rec.createdAt,rec.fillType,'','','','','',...cfVals]);
+      }
+    });
+    filename='巡房紀錄_'+today()+'.csv';
+  }else if(type==='anomaly'&&window._lastAnomaly){
+    headers=['異常編號','巡房紀錄編號','巡房者','館名','房號','巡視區域','嚴重度','問題類型','備註','處理狀態','建立時間','更新時間','更新者','處理時效'];
+    window._lastAnomaly.forEach(rec=>rows.push([rec.anomalyId,rec.recordId,rec.inspector,rec.location,rec.roomNumber,rec.inspArea,rec.severity,rec.type,rec.note,rec.status,rec.createdAt,rec.updatedAt,rec.updatedBy,rec.timeEfficiency||'']));
+    filename='異常紀錄_'+today()+'.csv';
+  }else{alert('請先查詢後再匯出');return;}
+  const bom='\uFEFF';
+  const csv=bom+[headers,...rows].map(row=>row.map(c=>'"'+String(c||'').replace(/"/g,'""')+'"').join(',')).join('\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'})); a.download=filename; a.click();
+}
+</script>
+</body>
+</html>
