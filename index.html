@@ -167,8 +167,7 @@ textarea.f-input{resize:none;height:72px;}
 .modal-title{font-size:18px;font-weight:800;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:white;padding-bottom:14px;border-bottom:1px solid var(--border);}
 .modal-close{background:none;border:none;font-size:24px;cursor:pointer;color:var(--text3);line-height:1;}
 
-/* 封存查詢 */
-.archive-notice{background:#fef9e7;border:1.5px solid #f8c471;border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:12px;font-size:14px;color:#7d6608;}
+
 </style>
 </head>
 <body>
@@ -207,7 +206,7 @@ textarea.f-input{resize:none;height:72px;}
       <div class="tab" onclick="goTab('query',this)">🔍 查詢</div>
       <div class="tab" onclick="goTab('anomaly',this)">⚠️ 異常追蹤</div>
       <div class="tab" onclick="goTab('stats',this)">📊 統計</div>
-      <div class="tab" onclick="goTab('archive',this)">📁 封存查詢</div>
+
     </div>
   </div>
 
@@ -341,24 +340,6 @@ textarea.f-input{resize:none;height:72px;}
           <button class="btn btn-primary" onclick="doStats()" style="margin-top:12px;">查詢統計</button>
         </div>
         <div id="statsResult"></div>
-      </div>
-    </div>
-
-    <!-- 封存查詢 -->
-    <div class="page" id="pg-archive">
-      <div class="wrap">
-        <div class="archive-notice">📁 封存查詢：查詢已封存的歷史巡房資料。請先在系統設定填入「封存試算表ID」。</div>
-        <div class="card">
-          <div class="card-title">封存資料查詢</div>
-          <div class="date-row">
-            <div><label class="f-label" style="margin-top:0">開始日期</label><input class="f-input" type="date" id="ar-s"></div>
-            <div><label class="f-label" style="margin-top:0">結束日期</label><input class="f-input" type="date" id="ar-e"></div>
-          </div>
-          <label class="f-label">館名</label>
-          <select class="f-input" id="ar-loc"><option value="全部">全部館名</option></select>
-          <button class="btn btn-primary" onclick="doArchive()" style="margin-top:12px;">查詢封存資料</button>
-        </div>
-        <div id="archiveResult"></div>
       </div>
     </div>
 
@@ -519,7 +500,7 @@ function goTab(name,btn){
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
   document.getElementById('pg-'+name).classList.add('on');
   btn.classList.add('on');
-  const titles={home:'總覽',inspect:'新增巡房',query:'巡房查詢',anomaly:'異常追蹤',stats:'統計報表',archive:'封存查詢'};
+  const titles={home:'總覽',inspect:'新增巡房',query:'巡房查詢',anomaly:'異常追蹤',stats:'統計報表'};
   document.getElementById('pageTitle').textContent=titles[name]||'';
   window.scrollTo(0,0);
   if(name==='home')loadDash();
