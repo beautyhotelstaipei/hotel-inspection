@@ -209,6 +209,7 @@ textarea.f-input{resize:none;height:72px;}
     <span class="topbar-title" id="pageTitle">總覽</span>
     <div class="topbar-right">
       <span class="topbar-user" id="userName"></span>
+      <button id="driveAuthBtn" onclick="requestDriveAuth()" style="display:none;font-size:12px;padding:5px 10px;background:#27ae60;color:white;border:none;border-radius:8px;cursor:pointer;">📷 授權照片</button>
       <button class="btn-logout" onclick="doLogout()">登出</button>
     </div>
   </div>
@@ -473,6 +474,10 @@ async function initApp(){
   setupSelects();
   initInspect();
   loadDash();
+  // 如果有設定照片資料夾，顯示授權按鈕
+  if(cfg['照片資料夾ID']){
+    document.getElementById('driveAuthBtn').style.display='inline-block';
+  }
 }
 
 function setupSelects(){
@@ -1307,11 +1312,74 @@ function handlePhotoSelect(input){
 function handleTrackPhotoSelect(input, anomalyId){
   const files = Array.from(input.files);
   if(!files.length) return;
-  const photoType = input.dataset.photoType || 'problem';
+  const photoType = input.dataset.photoType || 'done';
+  // 先預覽，不立即上傳
   files.forEach(file=>{
-    compressAndPreview(file, null, anomalyId, photoType);
+    compressAndShowTrackPreview(file, anomalyId, photoType);
   });
   input.value='';
+}
+
+function compressAndShowTrackPreview(file, anomalyId, photoType){
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const img = new Image();
+    img.onload = function(){
+      const maxSize = 400;
+      let w=img.width, h=img.height;
+      if(w>maxSize||h>maxSize){
+        if(w>h){h=Math.round(h*maxSize/w);w=maxSize;}
+        else{w=Math.round(w*maxSize/h);h=maxSize;}
+      }
+      const canvas=document.createElement('canvas');
+      canvas.width=w; canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      const base64=canvas.toDataURL('image/jpeg',0.7).split(',')[1];
+      showTrackPhotoConfirm(base64, anomalyId, photoType, 'data:image/jpeg;base64,'+base64);
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function showTrackPhotoConfirm(base64, anomalyId, photoType, previewUrl){
+  // 找到該異常的卡片
+  const inp = document.getElementById('tp-'+anomalyId);
+  if(!inp) return;
+  const card = inp.closest('.track-card');
+  if(!card) return;
+  // 移除舊的確認區
+  const oldConfirm = card.querySelector('.photo-confirm-area');
+  if(oldConfirm) oldConfirm.remove();
+  // 建立確認區
+  const div = document.createElement('div');
+  div.className = 'photo-confirm-area';
+  div.style.cssText = 'background:#f0f8ff;border-radius:10px;padding:12px;margin-top:8px;border:1.5px solid #aed6f1;';
+  div.innerHTML = '<div class="mini-l" style="margin-top:0">確認上傳此照片？</div>'
+    +'<img src="'+previewUrl+'" style="width:100%;max-height:150px;object-fit:cover;border-radius:8px;margin:8px 0;">'
+    +'<div style="display:flex;gap:8px;margin-top:6px;">'
+    +'<button class="btn btn-primary btn-sm" id="cu-btn" onclick="confirmTrackUpload(this)">確認上傳</button>'
+    +'<button class="btn btn-outline btn-sm" onclick="cancelTrackPhoto(this)">取消</button>'
+    +'</div>';
+  div.dataset.base64 = base64;
+  div.dataset.anomalyId = anomalyId;
+  div.dataset.photoType = photoType;
+  // 插入到按鈕前面
+  inp.parentElement.insertBefore(div, inp);
+}
+
+function cancelTrackPhoto(btn){
+  btn.closest('.photo-confirm-area').remove();
+}
+
+async function confirmTrackUpload(btn){
+  const div = btn.closest('.photo-confirm-area');
+  const base64 = div.dataset.base64;
+  const anomalyId = div.dataset.anomalyId;
+  const photoType = div.dataset.photoType;
+  btn.disabled=true; btn.textContent='上傳中...';
+  await uploadTrackPhoto(base64, anomalyId, photoType);
+  div.remove();
 }
 
 function compressAndPreview(file, previewContainer, anomalyId, photoType){
@@ -1419,6 +1487,16 @@ const DRIVE_FOLDER_KEY = '照片資料夾ID';
 var _driveAccessToken = null;
 var _driveTokenExpiry = 0;
 
+async function requestDriveAuth(){
+  try {
+    await getDriveToken();
+    const btn = document.getElementById('driveAuthBtn');
+    if(btn){ btn.textContent='✅ 已授權'; btn.style.background='#888'; btn.disabled=true; }
+  } catch(e){
+    alert('授權失敗，請再試一次');
+  }
+}
+
 async function getDriveToken(){
   // 如果 token 還有效就直接用
   if(_driveAccessToken && Date.now() < _driveTokenExpiry){
@@ -1494,7 +1572,7 @@ async function uploadPhotoToDrive(base64, location, recordId, photoType){
         headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
         body: JSON.stringify({role:'reader', type:'anyone'})
       });
-      const viewUrl = 'https://drive.google.com/uc?id='+uploadData.id+'&export=view';
+      const viewUrl = 'https://drive.google.com/thumbnail?id='+uploadData.id+'&sz=w800';
       const thumbUrl = 'https://drive.google.com/thumbnail?id='+uploadData.id+'&sz=w200';
       return {fileId:uploadData.id, viewUrl, thumbUrl};
     }
@@ -1506,12 +1584,17 @@ async function uploadPhotoToDrive(base64, location, recordId, photoType){
 }
 
 async function uploadPhotosFromQueue(photoQueue, recordId, location){
+  // 先找對應的異常紀錄ID（用recordId找）
   for(let i=0; i<photoQueue.length; i++){
     try {
       const result = await uploadPhotoToDrive(photoQueue[i], location, recordId, 'problem');
-      if(result) console.log('照片上傳成功：', result.viewUrl);
+      if(result){
+        console.log('問題照片上傳成功：', result.viewUrl);
+        // 把連結存到巡房紀錄（用recordId標記）
+        await api('saveInspectionPhoto',{recordId:recordId, photoUrl:result.viewUrl});
+      }
     } catch(e){
-      console.log('照片上傳失敗：', e);
+      console.log('問題照片上傳失敗：', e);
     }
   }
 }
