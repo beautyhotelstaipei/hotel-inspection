@@ -859,6 +859,12 @@ async function doSubmit(){
     });
   });
 
+  // 如果有照片，在用戶按下送出時（有用戶互動）先取得 Drive token
+  // 這樣背景上傳時 token 已經準備好，不需要再跳出授權視窗
+  if(photoQueue.length > 0 && cfg['照片資料夾ID']){
+    try { await getDriveToken(); } catch(e){ console.log('Drive token 取得失敗，照片將無法上傳'); }
+  }
+
   const btn=document.getElementById('submitBtn'); btn.disabled=true; btn.textContent='送出中...';
   const startTime=fillMode==='retro'?document.getElementById('i-start').value:(window._inspStart||new Date().toISOString());
   const endTime=fillMode==='retro'?document.getElementById('i-end').value:null;
@@ -1572,8 +1578,8 @@ async function uploadPhotoToDrive(base64, location, recordId, photoType){
         headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
         body: JSON.stringify({role:'reader', type:'anyone'})
       });
-      const viewUrl = 'https://drive.google.com/thumbnail?id='+uploadData.id+'&sz=w800';
-      const thumbUrl = 'https://drive.google.com/thumbnail?id='+uploadData.id+'&sz=w200';
+      const viewUrl = 'https://lh3.googleusercontent.com/d/'+uploadData.id;
+      const thumbUrl = 'https://lh3.googleusercontent.com/d/'+uploadData.id+'=w200';
       return {fileId:uploadData.id, viewUrl, thumbUrl};
     }
     return null;
