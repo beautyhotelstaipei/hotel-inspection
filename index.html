@@ -539,7 +539,10 @@ async function loadDash(){
     h+='<div class="sec-title">今日巡房排名 TOP '+d.ranking.length+'</div><div class="card" style="padding:4px 18px;">';
     d.ranking.forEach((rec,i)=>{
       const cls=i===0?'g':i===1?'s':i===2?'b':'';
-      h+='<div class="rank-row"><div class="rank-n '+cls+'">'+(i+1)+'</div><div class="rank-name">'+rec.name+'</div><span class="rank-cnt">'+rec.count+'間</span></div>';
+      h+='<div class="rank-row" style="cursor:pointer" onclick="showInspDetail(\'' + rec.name + '\')">'
+        +'<div class="rank-n '+cls+'">'+(i+1)+'</div>'
+        +'<div class="rank-name">'+rec.name+'</div>'
+        +'<span class="rank-cnt">'+rec.count+'間 ›</span></div>';
     });
     h+='</div>';
   }
@@ -894,11 +897,18 @@ async function doQuery(){
         const statuses=getStatusList(a.type);
         let stColor='#888';
         statuses.forEach(s=>{ if(s.name===a.status)stColor=getStatusColor(s); });
-        aH+='<div class="a-row"><div style="flex:1;padding-right:8px"><strong>'+a.inspArea+'</strong>・'+a.type+(a.note?'・'+a.note:'')+'</div>'
+        const photoHtml = (a.photos&&a.photos.length)
+          ? '<div class="photo-preview" style="margin-top:6px">'+a.photos.map(function(u){return '<div class="photo-thumb"><img src="'+u+'" onclick="viewPhoto(this.src)"></div>';}).join('')+'</div>'
+          : '';
+        aH+='<div class="a-row" style="flex-direction:column;align-items:flex-start">'
+          +'<div style="display:flex;justify-content:space-between;align-items:flex-start;width:100%">'
+          +'<div style="flex:1;padding-right:8px"><strong>'+a.inspArea+'</strong>・'+a.type+(a.note?'・'+a.note:'')+'</div>'
           +'<div style="display:flex;gap:5px;flex-shrink:0;align-items:center;">'
           +'<span class="badge '+(a.severity==='嚴重'?'b-ng':'b-warn')+'">'+a.severity+'</span>'
           +'<span class="st-btn" style="background:'+stColor+';color:white;border-color:'+stColor+';font-size:11px;padding:3px 8px;">'+a.status+'</span>'
-          +'</div></div>';
+          +'</div></div>'
+          +photoHtml
+          +'</div>';
       });
       aH+='</div>';
     }
@@ -978,12 +988,12 @@ async function doAnomaly(){
       +(rec.updatedAt?'<div class="row-s" style="margin-top:8px">最後更新：'+rec.updatedBy+'・'+rec.updatedAt+'</div>':'')
       +'<div class="photo-section" style="margin-top:10px">'
       +(rec.problemPhotos&&rec.problemPhotos.length?'<div class="mini-l">問題照片</div><div class="photo-preview">'
-        +rec.problemPhotos.map(u=>'<div class="photo-thumb"><img src="'+u+'" onclick="viewPhoto(\''+u+'\')"></div>').join('')+'</div>':'')
+        +rec.problemPhotos.map(function(u){return '<div class="photo-thumb"><img src="'+u+'" onclick="viewPhoto(this.src)"></div>';}).join('')+'</div>':'')
       +(rec.donePhotos&&rec.donePhotos.length?'<div class="mini-l">完工照片</div><div class="photo-preview">'
-        +rec.donePhotos.map(u=>'<div class="photo-thumb"><img src="'+u+'" onclick="viewPhoto(\''+u+'\')"></div>').join('')+'</div>':'')
+        +rec.donePhotos.map(function(u){return '<div class="photo-thumb"><img src="'+u+'" onclick="viewPhoto(this.src)"></div>';}).join('')+'</div>':'')
       +'<div class="photo-btn-grp" style="margin-top:8px">'
-      +'<button class="photo-btn" onclick="triggerTrackPhoto(\''+rec.anomalyId+'\',\'camera\',\'problem\')">📷 拍問題照片</button>'
-      +'<button class="photo-btn" onclick="triggerTrackPhoto(\''+rec.anomalyId+'\',\'camera\',\'done\')">✅ 拍完工照片</button>'
+      +'<button class="photo-btn" onclick="triggerTrackPhoto(\''+rec.anomalyId+'\',\'camera\',\'done\')">📷 拍完工照片</button>'
+      +'<button class="photo-btn" onclick="triggerTrackPhoto(\''+rec.anomalyId+'\',\'gallery\',\'done\')">🖼 從相簿選取</button>'
       +'</div>'
       +'<input type="file" class="photo-input" id="tp-'+rec.anomalyId+'" accept="image/*" capture="environment" style="display:none">'
       +'</div>'
@@ -1170,6 +1180,43 @@ async function doSaveEdit(){
     alert2('editResult',r.message,'err'); btn.disabled=false; btn.textContent='儲存修改';
   }
 }
+
+// ============================================================
+// 統計：查看人員巡房明細
+// ============================================================
+function showInspDetail(inspName){
+  document.getElementById('detailTitle').textContent = inspName + ' 巡房明細';
+  document.getElementById('detailContent').innerHTML = '<div class="loading">載入中...</div>';
+  openModal('detailModal');
+  if(!window._stats){
+    document.getElementById('detailContent').innerHTML='<div class="empty">請先查詢統計</div>';
+    return;
+  }
+  // 從所有館的locationDetails中找出該人員的紀錄
+  const allDetails = [];
+  const locDetails = window._stats.locationDetails || {};
+  Object.entries(locDetails).forEach(([loc, recs])=>{
+    recs.forEach(rec=>{
+      if(rec.inspector===inspName) allDetails.push(Object.assign({location:loc}, rec));
+    });
+  });
+  allDetails.sort((a,b)=> (b.startTime||'').localeCompare(a.startTime||''));
+  if(!allDetails.length){
+    document.getElementById('detailContent').innerHTML='<div class="empty">查無紀錄</div>';
+    return;
+  }
+  let h='<div class="result-cnt" style="margin-bottom:10px">共 '+allDetails.length+' 筆</div>';
+  h+='<div class="card" style="padding:4px 18px;">';
+  allDetails.forEach(rec=>{
+    h+='<div class="list-row"><div>'
+      +'<div class="row-t">'+rec.location+'・'+rec.roomNumber+'號房</div>'
+      +'<div class="row-s">'+rec.startTime+'・'+(rec.duration||'')+'</div>'
+      +'</div><span class="badge b-gray">'+rec.roomStatus+'</span></div>';
+  });
+  h+='</div>';
+  document.getElementById('detailContent').innerHTML=h;
+}
+
 
 // ============================================================
 // 匯出 CSV
