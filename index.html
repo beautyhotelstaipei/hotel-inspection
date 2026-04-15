@@ -183,6 +183,7 @@ textarea.f-input{resize:none;height:72px;}
 
 </style>
 </head>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <body>
 
 <!-- 登入 -->
@@ -1377,25 +1378,32 @@ function viewPhoto(url){
 async function uploadTrackPhoto(base64, anomalyId, photoType){
   const rec = (window._lastAnomaly||[]).find(r=>r.anomalyId===anomalyId);
   if(!rec) return;
-  const r = await api('uploadPhoto',{data:{
-    photoData: base64,
-    mimeType: 'image/jpeg',
-    location: rec.location,
-    recordId: anomalyId,
-    photoType: photoType
-  }});
-  if(r.success){
-    // 顯示縮圖
-    const trackCard = document.querySelector('[id="sg-'+anomalyId+'"]');
-    if(trackCard){
-      const photoSection = trackCard.closest('.track-card').querySelector('.photo-preview:last-of-type');
-      if(photoSection){
-        addPhotoThumb(photoSection, r.thumbUrl, null, anomalyId, photoType);
+  try {
+    const result = await uploadPhotoToDrive(base64, rec.location, anomalyId, photoType);
+    if(result){
+      // 顯示縮圖在卡片上
+      const card = document.querySelector('[id="tp-'+anomalyId+'"]');
+      if(card){
+        const trackCard = card.closest('.track-card');
+        if(trackCard){
+          let section = trackCard.querySelector('.done-photos');
+          if(!section){
+            section = document.createElement('div');
+            section.className='done-photos';
+            section.innerHTML='<div class="mini-l">完工照片</div><div class="photo-preview"></div>';
+            card.parentElement.insertBefore(section, card);
+          }
+          const preview = section.querySelector('.photo-preview');
+          addPhotoThumb(preview, result.thumbUrl, null, anomalyId, photoType);
+        }
       }
+      // 把照片連結存到 GAS
+      await api('updateAnomalyPhoto',{anomalyId:anomalyId, photoUrl:result.viewUrl, photoType:photoType});
+      alert2('anomalyResult','✓ 完工照片已上傳','ok');
     }
-    alert2('anomalyResult','✓ 照片上傳成功','ok');
-  } else {
-    alert('照片上傳失敗：'+r.message);
+  } catch(e){
+    console.log('完工照片上傳失敗：', e);
+    alert('照片上傳失敗，請再試一次');
   }
 }
 
@@ -1403,20 +1411,107 @@ async function uploadTrackPhoto(base64, anomalyId, photoType){
 // ============================================================
 // 從收集好的 photoQueue 上傳照片（不依賴 DOM）
 // ============================================================
+// ============================================================
+// Google Drive 直接上傳（使用 OAuth 2.0）
+// ============================================================
+const DRIVE_CLIENT_ID = '25871760490-7j6nhsi1dk0rv896s6p9eb0dnke9chum.apps.googleusercontent.com';
+const DRIVE_FOLDER_KEY = '照片資料夾ID';
+var _driveAccessToken = null;
+var _driveTokenExpiry = 0;
+
+async function getDriveToken(){
+  // 如果 token 還有效就直接用
+  if(_driveAccessToken && Date.now() < _driveTokenExpiry){
+    return _driveAccessToken;
+  }
+  return new Promise((resolve, reject)=>{
+    google.accounts.oauth2.initTokenClient({
+      client_id: DRIVE_CLIENT_ID,
+      scope: 'https://www.googleapis.com/auth/drive.file',
+      callback: (response)=>{
+        if(response.error){ reject(response.error); return; }
+        _driveAccessToken = response.access_token;
+        _driveTokenExpiry = Date.now() + (response.expires_in - 60) * 1000;
+        resolve(_driveAccessToken);
+      }
+    }).requestAccessToken();
+  });
+}
+
+async function getOrCreateDriveFolder(token, parentId, folderName){
+  // 先搜尋是否已存在
+  const search = await fetch(
+    'https://www.googleapis.com/drive/v3/files?q=name%3D%22'+encodeURIComponent(folderName)+'%22+and+mimeType%3D%22application%2Fvnd.google-apps.folder%22+and+%22'+parentId+'%22+in+parents+and+trashed%3Dfalse&fields=files(id,name)',
+    {headers:{'Authorization':'Bearer '+token}}
+  );
+  const searchData = await search.json();
+  if(searchData.files && searchData.files.length > 0){
+    return searchData.files[0].id;
+  }
+  // 不存在就建立
+  const create = await fetch('https://www.googleapis.com/drive/v3/files',{
+    method:'POST',
+    headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+    body: JSON.stringify({name:folderName, mimeType:'application/vnd.google-apps.folder', parents:[parentId]})
+  });
+  const createData = await create.json();
+  return createData.id;
+}
+
+async function uploadPhotoToDrive(base64, location, recordId, photoType){
+  try {
+    const folderId = cfg[DRIVE_FOLDER_KEY];
+    if(!folderId){ console.log('未設定照片資料夾ID'); return null; }
+
+    const token = await getDriveToken();
+
+    // 建立 館名/日期 子資料夾
+    const dateStr = new Date().toISOString().split('T')[0];
+    const locFolderId = await getOrCreateDriveFolder(token, folderId, location);
+    const dateFolderId = await getOrCreateDriveFolder(token, locFolderId, dateStr);
+
+    // 上傳照片
+    const fileName = recordId + '_' + photoType + '_' + Date.now() + '.jpg';
+    const byteStr = atob(base64);
+    const bytes = new Uint8Array(byteStr.length);
+    for(let i=0;i<byteStr.length;i++) bytes[i]=byteStr.charCodeAt(i);
+    const blob = new Blob([bytes],{type:'image/jpeg'});
+
+    const form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify({name:fileName, parents:[dateFolderId]})],{type:'application/json'}));
+    form.append('file', blob);
+
+    const upload = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink,thumbnailLink',{
+      method:'POST',
+      headers:{'Authorization':'Bearer '+token},
+      body: form
+    });
+    const uploadData = await upload.json();
+    if(uploadData.id){
+      // 設定為任何人可以查看
+      await fetch('https://www.googleapis.com/drive/v3/files/'+uploadData.id+'/permissions',{
+        method:'POST',
+        headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+        body: JSON.stringify({role:'reader', type:'anyone'})
+      });
+      const viewUrl = 'https://drive.google.com/uc?id='+uploadData.id+'&export=view';
+      const thumbUrl = 'https://drive.google.com/thumbnail?id='+uploadData.id+'&sz=w200';
+      return {fileId:uploadData.id, viewUrl, thumbUrl};
+    }
+    return null;
+  } catch(e){
+    console.log('Drive上傳錯誤：', e);
+    return null;
+  }
+}
+
 async function uploadPhotosFromQueue(photoQueue, recordId, location){
   for(let i=0; i<photoQueue.length; i++){
-    const b64 = photoQueue[i];
     try {
-      const r = await api('uploadPhoto',{data:{
-        photoData: b64,
-        mimeType: 'image/jpeg',
-        location: location,
-        recordId: recordId,
-        photoType: 'problem'
-      }});
-      if(!r.success) console.log('照片上傳失敗：', r.message);
+      const result = await uploadPhotoToDrive(photoQueue[i], location, recordId, 'problem');
+      if(result) console.log('照片上傳成功：', result.viewUrl);
     } catch(e){
-      console.log('照片上傳錯誤：', e);
+      console.log('照片上傳失敗：', e);
     }
   }
 }
