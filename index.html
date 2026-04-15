@@ -844,6 +844,15 @@ async function doSubmit(){
     });
   }
 
+  // 送出前先收集照片資料（避免 resetInspect 清空 DOM 後找不到）
+  const photoQueue = [];
+  document.querySelectorAll('#areaList .anomaly-item').forEach(function(item){
+    const thumbs = item.querySelectorAll('.photo-thumb');
+    thumbs.forEach(function(thumb){
+      if(thumb.dataset.base64) photoQueue.push(thumb.dataset.base64);
+    });
+  });
+
   const btn=document.getElementById('submitBtn'); btn.disabled=true; btn.textContent='送出中...';
   const startTime=fillMode==='retro'?document.getElementById('i-start').value:(window._inspStart||new Date().toISOString());
   const endTime=fillMode==='retro'?document.getElementById('i-end').value:null;
@@ -859,7 +868,10 @@ async function doSubmit(){
   if(r.success){
     alert2('submitResult','✓ 巡房紀錄已送出！紀錄編號：'+r.recordId,'ok');
     // 背景上傳照片（不阻擋使用者）
-    uploadAnomalyPhotos(anomalies, r.recordId, loc).catch(err=>console.log('照片上傳失敗',err));
+    if(photoQueue.length > 0){
+      uploadPhotosFromQueue(photoQueue, r.recordId, loc)
+        .catch(err=>console.log('照片上傳失敗', err));
+    }
     setTimeout(()=>resetInspect(),2000);
   }else{
     alert2('submitResult','送出失敗：'+r.message,'err');
@@ -1255,15 +1267,26 @@ var _pendingTrackAnomalyId = '';
 
 function triggerPhoto(btn, mode){
   const item = btn.closest('.anomaly-item');
-  const input = mode==='camera' ? item.querySelector('.camera-input') : item.querySelector('.gallery-input');
-  if(input) input.click();
+  if(mode==='camera'){
+    const input = item.querySelector('.camera-input');
+    if(input) input.click();
+  } else {
+    const input = item.querySelector('.gallery-input');
+    if(input) input.click();
+  }
 }
 
 function triggerTrackPhoto(anomalyId, mode, photoType){
   _pendingTrackAnomalyId = anomalyId;
   _pendingTrackPhotoType = photoType;
+  // camera 用有 capture 的 input，gallery 用沒有 capture 的 input
   const inp = document.getElementById('tp-'+anomalyId);
   if(inp){
+    if(mode === 'gallery'){
+      inp.removeAttribute('capture');
+    } else {
+      inp.setAttribute('capture', 'environment');
+    }
     inp.dataset.photoType = photoType;
     inp.click();
   }
@@ -1296,7 +1319,7 @@ function compressAndPreview(file, previewContainer, anomalyId, photoType){
     const img = new Image();
     img.onload = function(){
       // 壓縮到最大 800px
-      const maxSize = 800;
+      const maxSize = 400;
       let w = img.width, h = img.height;
       if(w>maxSize||h>maxSize){
         if(w>h){ h=Math.round(h*maxSize/w); w=maxSize; }
@@ -1305,7 +1328,7 @@ function compressAndPreview(file, previewContainer, anomalyId, photoType){
       const canvas = document.createElement('canvas');
       canvas.width=w; canvas.height=h;
       canvas.getContext('2d').drawImage(img,0,0,w,h);
-      const base64 = canvas.toDataURL('image/jpeg',0.8).split(',')[1];
+      const base64 = canvas.toDataURL('image/jpeg',0.7).split(',')[1];
 
       // 如果有 previewContainer（巡房表單用）
       if(previewContainer){
@@ -1373,6 +1396,28 @@ async function uploadTrackPhoto(base64, anomalyId, photoType){
     alert2('anomalyResult','✓ 照片上傳成功','ok');
   } else {
     alert('照片上傳失敗：'+r.message);
+  }
+}
+
+
+// ============================================================
+// 從收集好的 photoQueue 上傳照片（不依賴 DOM）
+// ============================================================
+async function uploadPhotosFromQueue(photoQueue, recordId, location){
+  for(let i=0; i<photoQueue.length; i++){
+    const b64 = photoQueue[i];
+    try {
+      const r = await api('uploadPhoto',{data:{
+        photoData: b64,
+        mimeType: 'image/jpeg',
+        location: location,
+        recordId: recordId,
+        photoType: 'problem'
+      }});
+      if(!r.success) console.log('照片上傳失敗：', r.message);
+    } catch(e){
+      console.log('照片上傳錯誤：', e);
+    }
   }
 }
 
