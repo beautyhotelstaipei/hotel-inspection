@@ -1383,9 +1383,37 @@ async function confirmTrackUpload(btn){
   const base64 = div.dataset.base64;
   const anomalyId = div.dataset.anomalyId;
   const photoType = div.dataset.photoType;
-  btn.disabled=true; btn.textContent='上傳中...';
-  await uploadTrackPhoto(base64, anomalyId, photoType);
-  div.remove();
+  const previewImg = div.querySelector('img');
+
+  // 把確認區改成「上傳中」狀態，不顯示按鈕
+  div.innerHTML = '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;">'
+    +'<div style="width:60px;height:60px;border-radius:8px;overflow:hidden;flex-shrink:0;">'
+    +'<img src="'+previewImg.src+'" style="width:100%;height:100%;object-fit:cover;opacity:0.5;"></div>'
+    +'<span style="font-size:14px;color:var(--text3);">上傳中...</span></div>';
+
+  const rec = (window._lastAnomaly||[]).find(r=>r.anomalyId===anomalyId);
+  if(!rec){ div.remove(); return; }
+
+  try {
+    const result = await uploadPhotoToDrive(base64, rec.location, anomalyId, photoType);
+    if(result){
+      // 上傳成功：把確認區直接換成完成縮圖（沒有X）
+      div.innerHTML = '<div class="mini-l">完工照片</div>'
+        +'<div class="photo-preview"><div class="photo-thumb" style="cursor:pointer" onclick="viewPhoto(this.querySelector(\'img\').src)">'
+        +'<img src="'+result.thumbUrl+'"></div></div>';
+      div.className = 'done-photos-result';
+      // 存到試算表
+      await api('updateAnomalyPhoto',{anomalyId:anomalyId, photoUrl:result.viewUrl, photoType:photoType});
+      alert2('anomalyResult','✓ 完工照片已上傳','ok');
+    } else {
+      div.remove();
+      alert('照片上傳失敗，請再試一次');
+    }
+  } catch(e){
+    console.log('完工照片上傳失敗：', e);
+    div.remove();
+    alert('照片上傳失敗，請再試一次');
+  }
 }
 
 function compressAndPreview(file, previewContainer, anomalyId, photoType){
@@ -1450,35 +1478,10 @@ function viewPhoto(url){
 }
 
 async function uploadTrackPhoto(base64, anomalyId, photoType){
+  // 此函數已由 confirmTrackUpload 直接處理，保留備用
   const rec = (window._lastAnomaly||[]).find(r=>r.anomalyId===anomalyId);
-  if(!rec) return;
-  try {
-    const result = await uploadPhotoToDrive(base64, rec.location, anomalyId, photoType);
-    if(result){
-      // 顯示縮圖在卡片上
-      const card = document.querySelector('[id="tp-'+anomalyId+'"]');
-      if(card){
-        const trackCard = card.closest('.track-card');
-        if(trackCard){
-          let section = trackCard.querySelector('.done-photos');
-          if(!section){
-            section = document.createElement('div');
-            section.className='done-photos';
-            section.innerHTML='<div class="mini-l">完工照片</div><div class="photo-preview"></div>';
-            card.parentElement.insertBefore(section, card);
-          }
-          const preview = section.querySelector('.photo-preview');
-          addPhotoThumb(preview, result.thumbUrl, null, anomalyId, photoType);
-        }
-      }
-      // 把照片連結存到 GAS
-      await api('updateAnomalyPhoto',{anomalyId:anomalyId, photoUrl:result.viewUrl, photoType:photoType});
-      alert2('anomalyResult','✓ 完工照片已上傳','ok');
-    }
-  } catch(e){
-    console.log('完工照片上傳失敗：', e);
-    alert('照片上傳失敗，請再試一次');
-  }
+  if(!rec) return null;
+  return await uploadPhotoToDrive(base64, rec.location, anomalyId, photoType);
 }
 
 
