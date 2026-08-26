@@ -394,15 +394,30 @@ var user=null, ref={}, cfg={}, fillMode='now', noteTracking=false, anomalyType='
 
 function today(){ return new Date().toISOString().split('T')[0]; }
 
+// 唯讀操作：網路瞬斷時重試不會造成重複寫入，可安全重試
+const READ_ONLY_ACTIONS=['login','getRefData','getDashboard','getInspections','getAnomalies','getStatistics','getArchive'];
+
 async function api(action, params){
-  try{
-    const r = await fetch(API, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({action, ...params})
-    });
-    return await r.json();
-  }catch(e){ return {success:false, message:e.message}; }
+  // 寫入類操作（送出巡房、更新異常、上傳照片）只送一次，
+  // 避免重試造成重複紀錄；重試交給後端 proxy 安全處理
+  const attempts = READ_ONLY_ACTIONS.indexOf(action)>=0 ? 2 : 1;
+  for(let i=1;i<=attempts;i++){
+    try{
+      const r = await fetch(API, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({action, ...params})
+      });
+      const data = await r.json();
+      // 技術細節只記到主控台，不顯示給使用者
+      if(data && data.success===false && data.detail) console.warn('[api]',action,data.detail);
+      return data;
+    }catch(e){
+      console.warn('[api]',action,'第'+i+'次連線失敗：',e.message);
+      if(i<attempts) await new Promise(ok=>setTimeout(ok,500));
+    }
+  }
+  return {success:false, message:'連線不穩定，請稍後再試一次'};
 }
 
 function alert2(id,msg,type){
