@@ -86,7 +86,9 @@ module.exports = async (req, res) => {
   res.json({
     success: false,
     message: '連線不穩定，請稍後再試一次',
-    detail: lastErr ? lastErr.message : '未知錯誤'
+    detail: lastErr ? lastErr.message : '未知錯誤',
+    // 前端據此判斷：true = GAS 可能已寫入，不可盲目重送
+    mayHaveWritten: !!(lastErr && lastErr.gasMayHaveRun)
   });
 };
 
