@@ -390,7 +390,7 @@ textarea.f-input{resize:none;height:72px;}
 // 設定
 // ============================================================
 const API = '/api/proxy';
-var user=null, ref={}, cfg={}, fillMode='now', noteTracking=false, anomalyType='全部', pendSt={};
+var user=null, ref={}, cfg={}, fillMode='now', noteTracking=false, anomalyType='全部', pendSt={}, submitPending=false;
 
 function today(){ return new Date().toISOString().split('T')[0]; }
 
@@ -538,7 +538,16 @@ function goTab(name,btn){
   document.getElementById('pageTitle').textContent=titles[name]||'';
   window.scrollTo(0,0);
   if(name==='home')loadDash();
-  if(name==='inspect')resetInspect();
+  if(name==='inspect'){
+    // 表單有填過東西就保留，避免誤觸分頁害使用者整張重填
+    if(submitPending){
+      // 送出結果不明：提示已經在畫面上，不要覆蓋掉
+    }else if(inspectHasData()){
+      showKeepNotice();
+    }else{
+      resetInspect();
+    }
+  }
 }
 
 // ============================================================
@@ -807,7 +816,36 @@ function addNoteAnomaly(){
   addBtn.onclick=addNoteAnomaly; wrap.appendChild(addBtn);
 }
 
+// 判斷巡房表單是否已經填過東西（用來決定切分頁時要不要保留）
+function inspectHasData(){
+  const ids=['i-area','i-type','i-loc','i-room','i-rs','i-note','i-start','i-end'];
+  for(let k=0;k<ids.length;k++){
+    const el=document.getElementById(ids[k]);
+    if(el && el.value && el.value.trim()!=='') return true;
+  }
+  if(document.querySelector('#areaList .anomaly-item .type-grp .chip.on')) return true;
+  if(document.querySelector('#noteAnomalyList .anomaly-item')) return true;
+  if(document.querySelector('#areaList .photo-thumb')) return true;
+  return false;
+}
+
+// 切回巡房分頁且表單有內容時的提示（附手動清空連結）
+function showKeepNotice(){
+  document.getElementById('submitResult').innerHTML=
+    '<div class="alert alert-ok" style="display:flex;justify-content:space-between;align-items:center;gap:10px">'
+    +'<span>已保留您上次填寫的內容</span>'
+    +'<a href="javascript:void(0)" onclick="forceReset()" style="color:inherit;text-decoration:underline;white-space:nowrap">重新填寫一張</a>'
+    +'</div>';
+}
+
+// 使用者主動要求清空，開新的一張
+function forceReset(){
+  submitPending=false;
+  resetInspect();
+}
+
 function resetInspect(){
+  submitPending=false;
   window._inspStart=new Date().toISOString();
   setFill('now');
   ['i-area','i-type','i-loc','i-rs'].forEach(id=>{ const el=document.getElementById(id); if(el)el.value=''; });
@@ -899,9 +937,19 @@ async function doSubmit(){
       uploadPhotosFromQueue(photoQueue, r.recordId, loc)
         .catch(err=>console.log('照片上傳失敗', err));
     }
+    submitPending=false;
     setTimeout(()=>resetInspect(),2000);
+  }else if(r.mayHaveWritten){
+    // 送出結果不明：GAS 可能已經寫入，鎖住表單避免產生重複紀錄
+    submitPending=true;
+    document.getElementById('submitResult').innerHTML=
+      '<div class="alert alert-err">⚠ 送出結果不明，這筆可能已經存進去了<br>'
+      +'請先到「巡房查詢」確認，<b>不要直接重送</b><br>'
+      +'<span style="font-size:.9em">（表單資料會保留，查完切回來還在）</span>'
+      +'<div style="margin-top:8px;text-align:right"><a href="javascript:void(0)" onclick="forceReset()" style="color:inherit;text-decoration:underline">重新填寫一張</a></div></div>';
+    btn.disabled=false; btn.textContent='確認後再送出';
   }else{
-    alert2('submitResult','送出失敗：'+r.message,'err');
+    alert2('submitResult','送出失敗，資料沒有存進去<br>請直接再按一次送出','err');
     btn.disabled=false; btn.textContent='送出巡房紀錄';
   }
 }
